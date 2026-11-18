@@ -167,9 +167,17 @@
               </select>
             </label>
             <p class="note hidden" id="hosted-cookies-note">
-              En la nube no hay Chrome ni Edge. Para un directo de YouTube sube un archivo, o usa la app en tu Mac.
+              En la nube no hay Chrome. Si YouTube dice “no eres un bot”, sube el vídeo o un cookies.txt.
             </p>
           </div>
+
+          <label id="cookies-txt-field">
+            Cookies YouTube (opcional, .txt)
+            <input type="file" id="cookies" name="cookies" accept=".txt,text/plain" />
+          </label>
+          <p class="note">
+            Si el enlace falla por “bot”: en Chrome instala “Get cookies.txt LOCALLY”, entra a YouTube y sube el .txt. O sube el vídeo como archivo.
+          </p>
 
           <div id="cut-panel">
             <p class="step">03 · Recorte</p>

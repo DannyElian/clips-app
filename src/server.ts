@@ -44,6 +44,14 @@ async function main() {
     storage,
     limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB
     fileFilter: (_req, file, cb) => {
+      if (file.fieldname === "cookies") {
+        const ok =
+          file.mimetype.startsWith("text/") ||
+          /\.txt$/i.test(file.originalname) ||
+          file.mimetype === "application/octet-stream";
+        cb(ok ? null : new Error("Las cookies deben ser un .txt (formato Netscape)"), ok);
+        return;
+      }
       const ok =
         file.mimetype.startsWith("video/") ||
         /\.(mp4|mkv|mov|webm|avi|m4v)$/i.test(file.originalname);
@@ -120,6 +128,7 @@ async function main() {
     upload.fields([
       { name: "video", maxCount: 1 },
       { name: "videoB", maxCount: 1 },
+      { name: "cookies", maxCount: 1 },
     ])(req, res, (err) => {
       if (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -131,9 +140,14 @@ async function main() {
   }, async (req, res) => {
     try {
       const body = req.body as Record<string, unknown>;
-      const files = req.files as { video?: Express.Multer.File[]; videoB?: Express.Multer.File[] } | undefined;
+      const files = req.files as {
+        video?: Express.Multer.File[];
+        videoB?: Express.Multer.File[];
+        cookies?: Express.Multer.File[];
+      } | undefined;
       const fileA = files?.video?.[0];
       const fileB = files?.videoB?.[0];
+      const cookiesFile = files?.cookies?.[0]?.path;
       let options = parseClipOptions(body);
 
       let urlA: string | undefined;
@@ -170,6 +184,7 @@ async function main() {
           sourcePathB: fileB?.path,
           sourceUrlB: fileB ? undefined : urlB,
           sourceFilenameB: fileB?.originalname ?? urlB ?? "vídeo 2",
+          cookiesFile,
           crop,
           options,
         });
@@ -188,6 +203,7 @@ async function main() {
         sourcePath: fileA?.path,
         sourceUrl: fileA ? undefined : urlA,
         sourceFilename: fileA?.originalname ?? urlA ?? "enlace",
+        cookiesFile,
         crop,
         options,
       });
@@ -218,7 +234,7 @@ function optionalUrl(raw: unknown): string | undefined {
 
 function publicJob(job: ReturnType<typeof getJob>) {
   if (!job) return null;
-  const { sourcePath: _sp, sourcePathB: _spb, ...rest } = job;
+  const { sourcePath: _sp, sourcePathB: _spb, cookiesFile: _cf, ...rest } = job;
   return {
     ...rest,
     clips: job.clips?.map(({ path: _p, ...c }) => c),

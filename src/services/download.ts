@@ -139,14 +139,17 @@ export function canUseBrowserCookies(): boolean {
 
 async function cookieAttempts(
   preferred: string,
-  opts: { includeNone?: boolean; browsers?: string[] } = {},
+  opts: { includeNone?: boolean; browsers?: string[]; cookiesFile?: string } = {},
 ): Promise<Array<{ label: string; args: string[] }>> {
   const out: Array<{ label: string; args: string[] }> = [];
-  try {
-    await fs.access(cookiesTxtPath());
-    out.push({ label: "youtube-cookies.txt", args: ["--cookies", cookiesTxtPath()] });
-  } catch {
-    // optional file
+  const files = [opts.cookiesFile, cookiesTxtPath()].filter(Boolean) as string[];
+  for (const file of files) {
+    try {
+      await fs.access(file);
+      out.push({ label: path.basename(file), args: ["--cookies", file] });
+    } catch {
+      // optional
+    }
   }
   const useBrowser = canUseBrowserCookies() && preferred !== "none";
   const browsers = !useBrowser
@@ -311,6 +314,7 @@ export async function downloadSourceVideo(
   liveLastMinutes?: number,
   onProgress?: (msg: string) => void,
   cookiesBrowser = "auto",
+  cookiesFile?: string,
 ): Promise<{ path: string; filename: string }> {
   const safeUrl = parseVideoUrl(url);
   await fs.mkdir(destDir, { recursive: true });
@@ -351,9 +355,20 @@ export async function downloadSourceVideo(
       cookiesBrowser,
       onProgress,
       onChunk,
+      cookiesFile,
     );
   }
-  return downloadVodYoutube(ytdlp, safeUrl, destDir, fileId, maxHeight, onProgress, onChunk);
+  return downloadVodYoutube(
+    ytdlp,
+    safeUrl,
+    destDir,
+    fileId,
+    maxHeight,
+    onProgress,
+    onChunk,
+    0,
+    cookiesFile,
+  );
 }
 
 async function downloadVodYoutube(
@@ -365,6 +380,7 @@ async function downloadVodYoutube(
   onProgress?: (msg: string) => void,
   onChunk?: (text: string) => void,
   lastMinutes = 0,
+  cookiesFile?: string,
 ): Promise<{ path: string; filename: string }> {
   const h = qualityHeight(maxHeight);
   onProgress?.(
@@ -408,24 +424,38 @@ async function downloadVodYoutube(
       onChunk,
     });
 
-  let { code, stderr } = await run(["--extractor-args", "youtube:player_client=tv,android,ios,web"]);
-  let lastStderr = stderr;
-  if (code === 0) {
-    const match = await pickDownloaded(destDir, fileId);
-    if (match) return match;
+  const clients = [
+    "android,ios,tv",
+    "android",
+    "ios",
+    "tv_embedded,android_vr",
+    "tv,android,ios,web",
+  ];
+  let lastStderr = "";
+  for (const client of clients) {
+    onProgress?.(`Descargando en ${h}p (${client.split(",")[0]})…`);
+    const { code, stderr } = await run([
+      "--extractor-args",
+      `youtube:player_client=${client}`,
+    ]);
+    lastStderr = stderr;
+    if (code === 0) {
+      const match = await pickDownloaded(destDir, fileId);
+      if (match) return match;
+    }
+    if (!/not a bot|Sign in to confirm|Requested format is not available/i.test(stderr) && code !== 0) {
+      break;
+    }
   }
 
-  // YouTube bot-check: reuse the browser session without showing a cookies UI.
-  if (/not a bot|Sign in to confirm/i.test(lastStderr) || lastMinutes) {
-    onProgress?.(
-      lastMinutes ? `Reintentando últimos ${lastMinutes} min…` : `Descargando vídeo en ${h}p…`,
-    );
-    const cookieTries = await cookieAttempts("auto");
-    for (const cookies of cookieTries) {
-      if (!cookies.args.length) continue;
+  const cookieTries = await cookieAttempts("auto", { cookiesFile });
+  for (const cookies of cookieTries) {
+    if (!cookies.args.length) continue;
+    onProgress?.(`Reintentando con cookies (${cookies.label})…`);
+    for (const client of ["android,ios,tv", "web,android,ios"]) {
       const retry = await run([
         "--extractor-args",
-        "youtube:player_client=web,android,ios",
+        `youtube:player_client=${client}`,
         ...cookies.args,
       ]);
       lastStderr = retry.stderr;
@@ -434,14 +464,24 @@ async function downloadVodYoutube(
         if (match) return match;
       }
     }
-    if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
-      throw new Error(
-        "YouTube pide confirmar que no eres un bot. Abre YouTube en Chrome (sesión iniciada), recarga y vuelve a exportar. Si macOS pide la clave del llavero, acéptala.",
-      );
-    }
+  }
+
+  if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
+    throw botCheckError();
   }
 
   throw downloadError(lastStderr, "formato no disponible");
+}
+
+function botCheckError(): Error {
+  if (!canUseBrowserCookies()) {
+    return new Error(
+      "YouTube bloqueó el enlace en la nube (parece un bot). Sube el vídeo como archivo, o adjunta un cookies.txt: en Chrome instala “Get cookies.txt LOCALLY”, entra a YouTube y exporta el archivo.",
+    );
+  }
+  return new Error(
+    "YouTube pide confirmar que no eres un bot. Abre YouTube en Chrome (sesión iniciada), recarga y vuelve a exportar. Si macOS pide la clave del llavero, acéptala.",
+  );
 }
 
 function liveFormat(height: number): string {
@@ -527,6 +567,7 @@ async function downloadLiveYoutube(
   cookiesBrowser: string,
   onProgress?: (msg: string) => void,
   onChunk?: (text: string) => void,
+  cookiesFile?: string,
 ): Promise<{ path: string; filename: string }> {
   const filename = `${fileId}.mp4`;
   const outPath = path.join(destDir, filename);
@@ -535,6 +576,7 @@ async function downloadLiveYoutube(
   const cookieTries = await cookieAttempts(cookiesBrowser, {
     includeNone: true,
     browsers: ["chrome"],
+    cookiesFile,
   });
 
   const firstCookies = cookieTries[0]?.args ?? [];
@@ -552,6 +594,7 @@ async function downloadLiveYoutube(
       onProgress,
       onChunk,
       liveLastMinutes,
+      cookiesFile,
     );
   }
 
@@ -584,9 +627,7 @@ async function downloadLiveYoutube(
   }
 
   if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
-    throw new Error(
-      "YouTube pide cookies para el directo. Abre YouTube en Chrome, recarga y vuelve a exportar.",
-    );
+    throw botCheckError();
   }
   throw new Error(
     `No hay replay/DVR para cortar hacia atrás. ${lastStderr.slice(-200)}`,

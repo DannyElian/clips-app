@@ -156,6 +156,7 @@ export async function createJob(input: {
   sourcePathB?: string;
   sourceFilenameB?: string;
   sourceUrlB?: string;
+  cookiesFile?: string;
   crop: CropConfig;
   options: ClipOptions;
 }): Promise<Job> {
@@ -173,6 +174,7 @@ export async function createJob(input: {
     sourcePathB: input.sourcePathB,
     sourceFilenameB: input.sourceFilenameB,
     sourceUrlB: input.sourceUrlB,
+    cookiesFile: input.cookiesFile,
     crop: input.crop,
     options: input.options,
     progress: needsDl ? "En cola — descargando enlace…" : "En cola",
@@ -233,6 +235,7 @@ async function processJob(id: string): Promise<void> {
           touch(j, { progress: `${label}: ${msg}` });
         },
         current.options.cookiesBrowser,
+        current.cookiesFile,
       );
     };
 
