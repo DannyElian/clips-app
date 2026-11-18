@@ -14,7 +14,7 @@ import {
   UPLOADS_DIR,
   JOBS_DIR,
 } from "./services/jobs.js";
-import { parseVideoUrl } from "./services/download.js";
+import { canUseBrowserCookies, parseVideoUrl } from "./services/download.js";
 import {
   DEFAULT_CLIP_OPTIONS,
   DEFAULT_GAMEPLAY_CROP,
@@ -65,6 +65,7 @@ async function main() {
 
   app.get("/api/defaults", (_req, res) => {
     res.json({
+      browserCookies: canUseBrowserCookies(),
       webcamPresets: DEFAULT_WEBCAM_PRESETS,
       gameplay: DEFAULT_GAMEPLAY_CROP,
       options: DEFAULT_CLIP_OPTIONS,

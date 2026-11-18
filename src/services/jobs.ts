@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { detectHighlights } from "./highlight.js";
 import { exportAllClips } from "./compose.js";
-import { downloadSourceVideo, keepLastMinutes } from "./download.js";
+import { canUseBrowserCookies, downloadSourceVideo, keepLastMinutes } from "./download.js";
 import { probeVideo, ensureDir, jobContext, killJobProcesses, CancelledError } from "./ffmpeg.js";
 import { detectWebcamRect } from "./webcam.js";
 import {
@@ -108,7 +108,10 @@ export function parseClipOptions(body: Record<string, unknown>): ClipOptions {
     liveLastMinutes: liveOn(body.liveMode)
       ? clamp(Math.round(num(body.liveLastMinutes, 30)), 1, 180)
       : 0,
-    cookiesBrowser: liveOn(body.liveMode) ? parseCookiesBrowser(body.cookiesBrowser) : "none",
+    cookiesBrowser:
+      liveOn(body.liveMode) && canUseBrowserCookies()
+        ? parseCookiesBrowser(body.cookiesBrowser)
+        : "none",
     pairOrder: body.pairOrder === "b-top" ? "b-top" : "a-top",
     pairHighlight: body.pairHighlight === "b" ? "b" : "a",
     pairAudioA: pair ? liveOn(body.pairAudioA) : true,

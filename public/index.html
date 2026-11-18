@@ -154,7 +154,7 @@
                 <input id="liveLastMinutes" name="liveLastMinutes" type="number" min="1" max="180" value="30" />
               </label>
             </div>
-            <label>
+            <label id="cookies-field">
               Cookies de YouTube (solo directos)
               <select name="cookiesBrowser" id="cookiesBrowser">
                 <option value="auto" selected>Auto (Chrome, luego Safari…)</option>
@@ -166,6 +166,9 @@
                 <option value="none">Ninguna</option>
               </select>
             </label>
+            <p class="note hidden" id="hosted-cookies-note">
+              En la nube no hay Chrome ni Edge. Para un directo de YouTube sube un archivo, o usa la app en tu Mac.
+            </p>
           </div>
 
           <div id="cut-panel">

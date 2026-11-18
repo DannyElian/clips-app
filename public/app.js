@@ -514,3 +514,13 @@ syncLive();
 syncLayout();
 syncSourceMode();
 syncPickMode();
+
+fetch("/api/defaults")
+  .then((r) => r.json())
+  .then((d) => {
+    if (d.browserCookies === false) {
+      document.getElementById("cookies-field")?.classList.add("hidden");
+      document.getElementById("hosted-cookies-note")?.classList.remove("hidden");
+    }
+  })
+  .catch(() => {});

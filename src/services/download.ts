@@ -38,7 +38,15 @@ function downloadError(stderr: string, fallback: string): Error {
     .map((l) => l.trim())
     .filter(Boolean);
   const errorLine = [...lines].reverse().find((l) => /^ERROR:/i.test(l));
-  const text = (errorLine ?? lines.at(-1) ?? fallback).replace(/^ERROR:\s*/i, "");
+  let text = (errorLine ?? lines.at(-1) ?? fallback).replace(/^ERROR:\s*/i, "");
+  if (/cookies database|cookies-from-browser|could not find edge/i.test(text + stderr)) {
+    text = canUseBrowserCookies()
+      ? "No se encontraron cookies del navegador. Abre YouTube en Chrome e inténtalo de nuevo, o sube el archivo."
+      : "En el servidor no hay Chrome/Edge. Sube el vídeo como archivo, o usa un VOD que no pida login. Los directos de YouTube aquí no pueden leer cookies del PC.";
+  } else if (/not a bot|Sign in to confirm/i.test(text + stderr) && !canUseBrowserCookies()) {
+    text =
+      "YouTube bloqueó la descarga en la nube. Sube el archivo, o usa el programa en tu Mac (ahí sí se usan las cookies de Chrome).";
+  }
   return new Error(`No se pudo descargar el enlace: ${text}`);
 }
 
@@ -122,6 +130,13 @@ function cookiesTxtPath(): string {
   return path.join(process.cwd(), "data", "youtube-cookies.txt");
 }
 
+/** Browser cookie DBs only exist on a real desktop, not on Render/Docker. */
+export function canUseBrowserCookies(): boolean {
+  if (process.env.RENDER || process.env.K_SERVICE || process.env.RAILWAY_ENVIRONMENT) return false;
+  if (process.platform !== "darwin" && process.platform !== "win32") return false;
+  return true;
+}
+
 async function cookieAttempts(
   preferred: string,
   opts: { includeNone?: boolean; browsers?: string[] } = {},
@@ -133,12 +148,12 @@ async function cookieAttempts(
   } catch {
     // optional file
   }
-  const browsers =
-    preferred === "none"
-      ? []
-      : preferred === "auto"
-        ? (opts.browsers ?? ["chrome", "safari", "firefox", "brave", "edge"])
-        : [preferred];
+  const useBrowser = canUseBrowserCookies() && preferred !== "none";
+  const browsers = !useBrowser
+    ? []
+    : preferred === "auto"
+      ? (opts.browsers ?? ["chrome", "safari", "firefox", "brave", "edge"])
+      : [preferred];
   for (const b of browsers) {
     out.push({ label: b, args: ["--cookies-from-browser", b] });
   }
