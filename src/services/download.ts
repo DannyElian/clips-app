@@ -127,7 +127,18 @@ function recordTimeoutMs(minutes: number): number {
 }
 
 function cookiesTxtPath(): string {
-  return path.join(process.cwd(), "data", "youtube-cookies.txt");
+  return (
+    process.env.YOUTUBE_COOKIES_FILE ||
+    "/etc/secrets/youtube-cookies.txt"
+  );
+}
+
+function cookiesTxtCandidates(): string[] {
+  return [
+    process.env.YOUTUBE_COOKIES_FILE,
+    "/etc/secrets/youtube-cookies.txt",
+    path.join(process.cwd(), "data", "youtube-cookies.txt"),
+  ].filter((p, i, all): p is string => Boolean(p) && all.indexOf(p) === i);
 }
 
 /** Browser cookie DBs only exist on a real desktop, not on Render/Docker. */
@@ -142,7 +153,7 @@ async function cookieAttempts(
   opts: { includeNone?: boolean; browsers?: string[]; cookiesFile?: string } = {},
 ): Promise<Array<{ label: string; args: string[] }>> {
   const out: Array<{ label: string; args: string[] }> = [];
-  const files = [opts.cookiesFile, cookiesTxtPath()].filter(Boolean) as string[];
+  const files = [opts.cookiesFile, ...cookiesTxtCandidates()].filter(Boolean) as string[];
   for (const file of files) {
     try {
       await fs.access(file);
