@@ -7,7 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --break-system-packages --no-cache-dir -U yt-dlp opencv-python-headless numpy
+RUN pip3 install --break-system-packages --no-cache-dir -U \
+    opencv-python-headless numpy \
+    "yt-dlp @ https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz"
 
 WORKDIR /app
 COPY package.json package-lock.json ./

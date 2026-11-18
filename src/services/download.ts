@@ -78,18 +78,10 @@ function qualityHeight(maxHeight: number): 360 | 720 | 1080 {
   return 360;
 }
 
-/** Prefer the chosen height and H.264, but always fall back to whatever YouTube actually offers. */
-function vodFormat(height: number): { fmt: string; sort: string } {
+/** Prefer the chosen height, then anything YouTube actually returned. */
+function vodFormat(height: number): string {
   const h = qualityHeight(height);
-  return {
-    fmt: [
-      `bv*[height<=${h}][vcodec^=avc]+ba[acodec^=mp4a]`,
-      `bv*[height<=${h}]+ba`,
-      `b[height<=${h}]`,
-      "bv*+ba/b",
-    ].join("/"),
-    sort: `res:${h},codec:h264:vp9:av01,ext:mp4:webm`,
-  };
+  return `bv*[height<=${h}]+ba/b[height<=${h}]/bv*+ba/b`;
 }
 
 function ytdlpSpeedArgs(): string[] {
@@ -395,8 +387,7 @@ async function downloadVodYoutube(
       : `Descargando vídeo en ${h}p…`,
   );
   const outTpl = path.join(destDir, `${fileId}.%(ext)s`);
-  const { fmt, sort } = vodFormat(h);
-  const fallbackFmt = "bv*+ba/b";
+  const fmt = vodFormat(h);
   const sectionArgs =
     lastMinutes > 0 ? ["--download-sections", `*-${lastMinutes}:00-inf`] : [];
   const baseArgs = [
@@ -411,10 +402,6 @@ async function downloadVodYoutube(
     "--remote-components",
     "ejs:github",
     ...ytdlpSpeedArgs(),
-    "-S",
-    sort,
-    "--merge-output-format",
-    "mp4",
     "-o",
     outTpl,
     ...sectionArgs,
@@ -423,55 +410,41 @@ async function downloadVodYoutube(
   const timeoutMs = lastMinutes
     ? Math.min(12, Math.max(4, lastMinutes * 1.2 + 3)) * 60 * 1000
     : 45 * 60 * 1000;
-  const run = (extra: string[], format = fmt) =>
-    runCommand(ytdlp.cmd, [...baseArgs, "-f", format, ...extra, "--", url], {
+  const run = (extra: string[]) =>
+    runCommand(ytdlp.cmd, [...baseArgs, ...extra, "--", url], {
       timeoutMs,
       onChunk,
     });
 
-  const clients = [
-    "android,ios,tv",
-    "android",
-    "ios",
-    "tv_embedded,android_vr",
-    "tv,android,ios,web",
+  const clientSets: Array<string | undefined> = [
+    undefined,
+    "web_safari,ios,mweb",
+    "tv,web_embedded",
   ];
-  const formats = [fmt, fallbackFmt];
-  let lastStderr = "";
-  for (const client of clients) {
-    for (const format of formats) {
-      onProgress?.(`Descargando en ${h}p (${client.split(",")[0]})…`);
-      const { code, stderr } = await run(
-        ["--extractor-args", `youtube:player_client=${client}`],
-        format,
-      );
-      lastStderr = stderr;
-      if (code === 0) {
-        const match = await pickDownloaded(destDir, fileId);
-        if (match) return match;
-      }
-      if (!/not a bot|Sign in to confirm|Requested format is not available/i.test(stderr) && code !== 0) {
-        break;
-      }
-    }
-  }
-
+  const formatSets = [fmt, "bv*+ba/b"];
   const cookieTries = await cookieAttempts("auto", { cookiesFile });
-  for (const cookies of cookieTries) {
-    if (!cookies.args.length) continue;
-    onProgress?.(`Reintentando con cookies (${cookies.label})…`);
-    for (const client of ["android,ios,tv", "web,android,ios"]) {
-      for (const format of formats) {
-        const retry = await run(
-          [
-            "--extractor-args",
-            `youtube:player_client=${client}`,
-            ...cookies.args,
-          ],
-          format,
+  const cookieOrder = [
+    ...cookieTries.filter((c) => c.args.length),
+    ...cookieTries.filter((c) => !c.args.length),
+  ];
+
+  let lastStderr = "";
+  for (const cookies of cookieOrder) {
+    for (const client of clientSets) {
+      for (const format of formatSets) {
+        const label = cookies.args.length ? cookies.label : "sin cookies";
+        onProgress?.(
+          `Descargando en ${h}p (${client?.split(",")[0] ?? "auto"} · ${label})…`,
         );
-        lastStderr = retry.stderr;
-        if (retry.code === 0) {
+        const extra = [
+          "-f",
+          format,
+          ...(client ? ["--extractor-args", `youtube:player_client=${client}`] : []),
+          ...cookies.args,
+        ];
+        const { code, stderr } = await run(extra);
+        lastStderr = stderr;
+        if (code === 0) {
           const match = await pickDownloaded(destDir, fileId);
           if (match) return match;
         }
@@ -481,6 +454,11 @@ async function downloadVodYoutube(
 
   if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
     throw botCheckError();
+  }
+  if (/Requested format is not available|No video formats/i.test(lastStderr)) {
+    throw new Error(
+      "YouTube no entregó un formato de vídeo descargable desde este servidor. Sube el archivo .mp4, o usa la app en tu Mac.",
+    );
   }
 
   throw downloadError(lastStderr, "formato no disponible");
