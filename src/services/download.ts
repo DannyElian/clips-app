@@ -122,6 +122,18 @@ function cookiesTxtCandidates(): string[] {
   ].filter((p, i, all): p is string => Boolean(p) && all.indexOf(p) === i);
 }
 
+export async function hasYoutubeCookiesFile(extraPath?: string): Promise<boolean> {
+  for (const file of [extraPath, ...cookiesTxtCandidates()].filter(Boolean) as string[]) {
+    try {
+      const text = await fs.readFile(file, "utf8");
+      if (/youtube\.com/i.test(text) && text.length > 80) return true;
+    } catch {
+      // try next
+    }
+  }
+  return false;
+}
+
 /** Browser cookie DBs only exist on a real desktop, not on Render/Docker. */
 export function canUseBrowserCookies(): boolean {
   if (process.env.RENDER || process.env.K_SERVICE || process.env.RAILWAY_ENVIRONMENT) return false;
@@ -411,11 +423,17 @@ async function downloadVodYoutube(
     });
 
   const hosted = Boolean(process.env.RENDER);
+  const haveCookies = await hasYoutubeCookiesFile(cookiesFile);
   const clientSets: Array<string | undefined> = hosted
-    ? [undefined, "web_safari,ios"]
+    ? haveCookies
+      ? ["web", "web_safari", "tv"]
+      : ["web_safari,ios"]
     : [undefined, "web_safari,ios,mweb", "tv,web_embedded"];
   const formatSets = hosted ? ["bv*+ba/b"] : [fmt, "bv*+ba/b"];
-  const cookieTries = await cookieAttempts("auto", { cookiesFile });
+  const cookieTries = await cookieAttempts("auto", {
+    cookiesFile,
+    includeNone: !haveCookies,
+  });
   const cookieOrder = [
     ...cookieTries.filter((c) => c.args.length),
     ...cookieTries.filter((c) => !c.args.length),
@@ -527,6 +545,8 @@ async function ytdlpGetUrls(
       "node",
       "--remote-components",
       "ejs:github",
+      "--extractor-args",
+      "youtube:player_client=web,web_safari",
       ...cookieArgs,
       "--",
       url,

@@ -521,6 +521,11 @@ fetch("/api/defaults")
     if (d.browserCookies === false) {
       document.getElementById("cookies-field")?.classList.add("hidden");
       document.getElementById("hosted-cookies-note")?.classList.remove("hidden");
+      const note = document.getElementById("hosted-cookies-note");
+      if (note && d.youtubeCookiesFile) {
+        note.textContent =
+          "Hay cookies de YouTube en el servidor. Si un enlace falla, sube un cookies.txt nuevo o el vídeo.";
+      }
     }
   })
   .catch(() => {});

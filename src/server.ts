@@ -14,7 +14,7 @@ import {
   UPLOADS_DIR,
   JOBS_DIR,
 } from "./services/jobs.js";
-import { canUseBrowserCookies, parseVideoUrl } from "./services/download.js";
+import { canUseBrowserCookies, hasYoutubeCookiesFile, parseVideoUrl } from "./services/download.js";
 import {
   DEFAULT_CLIP_OPTIONS,
   DEFAULT_GAMEPLAY_CROP,
@@ -71,9 +71,10 @@ async function main() {
     }});
   });
 
-  app.get("/api/defaults", (_req, res) => {
+  app.get("/api/defaults", async (_req, res) => {
     res.json({
       browserCookies: canUseBrowserCookies(),
+      youtubeCookiesFile: await hasYoutubeCookiesFile(),
       webcamPresets: DEFAULT_WEBCAM_PRESETS,
       gameplay: DEFAULT_GAMEPLAY_CROP,
       options: DEFAULT_CLIP_OPTIONS,
