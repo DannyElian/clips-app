@@ -273,7 +273,7 @@ async function processJob(id: string): Promise<void> {
 
     current = touch(jobs.get(id)!, { status: "analyzing", progress: "Analizando el vídeo de origen…" });
     let probe = await probeVideo(current.sourcePath);
-    if (current.options.liveLastMinutes) {
+    if (current.options.liveLastMinutes && !current.sourceUrl) {
       const want = current.options.liveLastMinutes * 60;
       if (probe.durationSec > want + 4) {
         current = touch(jobs.get(id)!, {

@@ -506,8 +506,6 @@ async function ytdlpLiveStatus(
       "--no-playlist",
       "--print",
       "live_status",
-      "--extractor-args",
-      "youtube:player_client=web,android",
       ...cookieArgs,
       "--",
       url,
@@ -536,8 +534,6 @@ async function ytdlpGetUrls(
       "node",
       "--remote-components",
       "ejs:github",
-      "--extractor-args",
-      "youtube:player_client=web,mweb,tv,android",
       ...cookieArgs,
       "--",
       url,
@@ -574,23 +570,8 @@ async function downloadLiveYoutube(
   const status = await ytdlpLiveStatus(ytdlp, url, firstCookies);
   const stillLive = status === "is_live" || status === "true";
 
-  if (!stillLive && status !== "unknown") {
-    onProgress?.(`Ya no es un live (${status}). Cortando los últimos ${liveLastMinutes} min del VOD…`);
-    return downloadVodYoutube(
-      ytdlp,
-      url,
-      destDir,
-      fileId,
-      maxHeight,
-      onProgress,
-      onChunk,
-      liveLastMinutes,
-      cookiesFile,
-    );
-  }
-
   onProgress?.(
-    `Snapshot: ${liveLastMinutes} min hacia atrás desde ahora. El vivo que sigue no se descarga.`,
+    `Snapshot: ${liveLastMinutes} min hacia atrás. No se sigue el directo en tiempo real.`,
   );
 
   let lastStderr = "";
@@ -620,6 +601,24 @@ async function downloadLiveYoutube(
   if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
     throw botCheckError();
   }
+
+  if (!stillLive) {
+    onProgress?.(
+      `Sin HLS DVR (${status}). Cortando los últimos ${liveLastMinutes} min del VOD…`,
+    );
+    return downloadVodYoutube(
+      ytdlp,
+      url,
+      destDir,
+      fileId,
+      maxHeight,
+      onProgress,
+      onChunk,
+      liveLastMinutes,
+      cookiesFile,
+    );
+  }
+
   throw new Error(
     `No hay replay/DVR para cortar hacia atrás. ${lastStderr.slice(-200)}`,
   );
