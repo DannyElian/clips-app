@@ -107,7 +107,6 @@ export interface Job {
   sourcePathB?: string;
   sourceFilenameB?: string;
   sourceUrlB?: string;
-  cookiesFile?: string;
   sourceDurationSec?: number;
   sourceWidth?: number;
   sourceHeight?: number;

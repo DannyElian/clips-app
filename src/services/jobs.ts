@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { detectHighlights } from "./highlight.js";
 import { exportAllClips } from "./compose.js";
-import { canUseBrowserCookies, downloadSourceVideo, keepLastMinutes } from "./download.js";
+import { downloadSourceVideo, keepLastMinutes } from "./download.js";
 import { probeVideo, ensureDir, jobContext, killJobProcesses, CancelledError } from "./ffmpeg.js";
 import { detectWebcamRect } from "./webcam.js";
 import {
@@ -108,10 +108,7 @@ export function parseClipOptions(body: Record<string, unknown>): ClipOptions {
     liveLastMinutes: liveOn(body.liveMode)
       ? clamp(Math.round(num(body.liveLastMinutes, 30)), 1, 180)
       : 0,
-    cookiesBrowser:
-      liveOn(body.liveMode) && canUseBrowserCookies()
-        ? parseCookiesBrowser(body.cookiesBrowser)
-        : "none",
+    cookiesBrowser: liveOn(body.liveMode) ? parseCookiesBrowser(body.cookiesBrowser) : "none",
     pairOrder: body.pairOrder === "b-top" ? "b-top" : "a-top",
     pairHighlight: body.pairHighlight === "b" ? "b" : "a",
     pairAudioA: pair ? liveOn(body.pairAudioA) : true,
@@ -156,7 +153,6 @@ export async function createJob(input: {
   sourcePathB?: string;
   sourceFilenameB?: string;
   sourceUrlB?: string;
-  cookiesFile?: string;
   crop: CropConfig;
   options: ClipOptions;
 }): Promise<Job> {
@@ -174,7 +170,6 @@ export async function createJob(input: {
     sourcePathB: input.sourcePathB,
     sourceFilenameB: input.sourceFilenameB,
     sourceUrlB: input.sourceUrlB,
-    cookiesFile: input.cookiesFile,
     crop: input.crop,
     options: input.options,
     progress: needsDl ? "En cola — descargando enlace…" : "En cola",
@@ -235,7 +230,6 @@ async function processJob(id: string): Promise<void> {
           touch(j, { progress: `${label}: ${msg}` });
         },
         current.options.cookiesBrowser,
-        current.cookiesFile,
       );
     };
 
@@ -273,7 +267,7 @@ async function processJob(id: string): Promise<void> {
 
     current = touch(jobs.get(id)!, { status: "analyzing", progress: "Analizando el vídeo de origen…" });
     let probe = await probeVideo(current.sourcePath);
-    if (current.options.liveLastMinutes && !current.sourceUrl) {
+    if (current.options.liveLastMinutes) {
       const want = current.options.liveLastMinutes * 60;
       if (probe.durationSec > want + 4) {
         current = touch(jobs.get(id)!, {

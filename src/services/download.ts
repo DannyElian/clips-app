@@ -38,15 +38,7 @@ function downloadError(stderr: string, fallback: string): Error {
     .map((l) => l.trim())
     .filter(Boolean);
   const errorLine = [...lines].reverse().find((l) => /^ERROR:/i.test(l));
-  let text = (errorLine ?? lines.at(-1) ?? fallback).replace(/^ERROR:\s*/i, "");
-  if (/cookies database|cookies-from-browser|could not find edge/i.test(text + stderr)) {
-    text = canUseBrowserCookies()
-      ? "No se encontraron cookies del navegador. Abre YouTube en Chrome e inténtalo de nuevo, o sube el archivo."
-      : "En el servidor no hay Chrome/Edge. Sube el vídeo como archivo, o usa un VOD que no pida login. Los directos de YouTube aquí no pueden leer cookies del PC.";
-  } else if (/not a bot|Sign in to confirm/i.test(text + stderr) && !canUseBrowserCookies()) {
-    text =
-      "YouTube bloqueó la descarga en la nube. Sube el archivo, o usa el programa en tu Mac (ahí sí se usan las cookies de Chrome).";
-  }
+  const text = (errorLine ?? lines.at(-1) ?? fallback).replace(/^ERROR:\s*/i, "");
   return new Error(`No se pudo descargar el enlace: ${text}`);
 }
 
@@ -78,10 +70,23 @@ function qualityHeight(maxHeight: number): 360 | 720 | 1080 {
   return 360;
 }
 
-/** Prefer the chosen height, then anything YouTube actually returned. */
-function vodFormat(height: number): string {
+/** Formats capped at the chosen height. Prefer H.264 MP4 (faster download + decode). Never fall back to unrestricted best. */
+function vodFormat(height: number): { fmt: string; sort: string } {
   const h = qualityHeight(height);
-  return `bv*[height<=${h}]+ba/b[height<=${h}]/bv*+ba/b`;
+  const cap = `bv*[height<=${h}][vcodec^=avc]+ba[acodec^=mp4a]/bv*[height<=${h}]+ba/b[height<=${h}]`;
+  if (h <= 360) {
+    return { fmt: `18/${cap}`, sort: "res:360,codec:h264:vp9,ext:mp4:m4a" };
+  }
+  if (h <= 720) {
+    return {
+      fmt: `22/bv*[height<=720][height>=480][vcodec^=avc]+ba[acodec^=mp4a]/${cap}`,
+      sort: "res:720,codec:h264:vp9,ext:mp4:m4a",
+    };
+  }
+  return {
+    fmt: `bv*[height<=1080][height>=720][vcodec^=avc]+ba[acodec^=mp4a]/${cap}`,
+    sort: "res:1080,codec:h264:vp9,ext:mp4:m4a",
+  };
 }
 
 function ytdlpSpeedArgs(): string[] {
@@ -113,54 +118,27 @@ function recordTimeoutMs(minutes: number): number {
   return (minutes + 8) * 60 * 1000;
 }
 
-function cookiesTxtCandidates(): string[] {
-  return [
-    process.env.YOUTUBE_COOKIES_FILE,
-    "/etc/secrets/youtube-cookies.txt",
-    "/etc/secrets/youtube-cookies_txt",
-    path.join(process.cwd(), "data", "youtube-cookies.txt"),
-  ].filter((p, i, all): p is string => Boolean(p) && all.indexOf(p) === i);
-}
-
-export async function hasYoutubeCookiesFile(extraPath?: string): Promise<boolean> {
-  for (const file of [extraPath, ...cookiesTxtCandidates()].filter(Boolean) as string[]) {
-    try {
-      const text = await fs.readFile(file, "utf8");
-      if (/youtube\.com/i.test(text) && text.length > 80) return true;
-    } catch {
-      // try next
-    }
-  }
-  return false;
-}
-
-/** Browser cookie DBs only exist on a real desktop, not on Render/Docker. */
-export function canUseBrowserCookies(): boolean {
-  if (process.env.RENDER || process.env.K_SERVICE || process.env.RAILWAY_ENVIRONMENT) return false;
-  if (process.platform !== "darwin" && process.platform !== "win32") return false;
-  return true;
+function cookiesTxtPath(): string {
+  return path.join(process.cwd(), "data", "youtube-cookies.txt");
 }
 
 async function cookieAttempts(
   preferred: string,
-  opts: { includeNone?: boolean; browsers?: string[]; cookiesFile?: string } = {},
+  opts: { includeNone?: boolean; browsers?: string[] } = {},
 ): Promise<Array<{ label: string; args: string[] }>> {
   const out: Array<{ label: string; args: string[] }> = [];
-  const files = [opts.cookiesFile, ...cookiesTxtCandidates()].filter(Boolean) as string[];
-  for (const file of files) {
-    try {
-      await fs.access(file);
-      out.push({ label: path.basename(file), args: ["--cookies", file] });
-    } catch {
-      // optional
-    }
+  try {
+    await fs.access(cookiesTxtPath());
+    out.push({ label: "youtube-cookies.txt", args: ["--cookies", cookiesTxtPath()] });
+  } catch {
+    // optional file
   }
-  const useBrowser = canUseBrowserCookies() && preferred !== "none";
-  const browsers = !useBrowser
-    ? []
-    : preferred === "auto"
-      ? (opts.browsers ?? ["chrome", "safari", "firefox", "brave", "edge"])
-      : [preferred];
+  const browsers =
+    preferred === "none"
+      ? []
+      : preferred === "auto"
+        ? (opts.browsers ?? ["chrome", "safari", "firefox", "brave", "edge"])
+        : [preferred];
   for (const b of browsers) {
     out.push({ label: b, args: ["--cookies-from-browser", b] });
   }
@@ -318,7 +296,6 @@ export async function downloadSourceVideo(
   liveLastMinutes?: number,
   onProgress?: (msg: string) => void,
   cookiesBrowser = "auto",
-  cookiesFile?: string,
 ): Promise<{ path: string; filename: string }> {
   const safeUrl = parseVideoUrl(url);
   await fs.mkdir(destDir, { recursive: true });
@@ -359,20 +336,9 @@ export async function downloadSourceVideo(
       cookiesBrowser,
       onProgress,
       onChunk,
-      cookiesFile,
     );
   }
-  return downloadVodYoutube(
-    ytdlp,
-    safeUrl,
-    destDir,
-    fileId,
-    maxHeight,
-    onProgress,
-    onChunk,
-    0,
-    cookiesFile,
-  );
+  return downloadVodYoutube(ytdlp, safeUrl, destDir, fileId, maxHeight, onProgress, onChunk);
 }
 
 async function downloadVodYoutube(
@@ -384,7 +350,6 @@ async function downloadVodYoutube(
   onProgress?: (msg: string) => void,
   onChunk?: (text: string) => void,
   lastMinutes = 0,
-  cookiesFile?: string,
 ): Promise<{ path: string; filename: string }> {
   const h = qualityHeight(maxHeight);
   onProgress?.(
@@ -393,7 +358,7 @@ async function downloadVodYoutube(
       : `Descargando vídeo en ${h}p…`,
   );
   const outTpl = path.join(destDir, `${fileId}.%(ext)s`);
-  const fmt = vodFormat(h);
+  const { fmt, sort } = vodFormat(h);
   const sectionArgs =
     lastMinutes > 0 ? ["--download-sections", `*-${lastMinutes}:00-inf`] : [];
   const baseArgs = [
@@ -408,6 +373,12 @@ async function downloadVodYoutube(
     "--remote-components",
     "ejs:github",
     ...ytdlpSpeedArgs(),
+    "-S",
+    sort,
+    "-f",
+    fmt,
+    "--merge-output-format",
+    "mp4",
     "-o",
     outTpl,
     ...sectionArgs,
@@ -422,68 +393,40 @@ async function downloadVodYoutube(
       onChunk,
     });
 
-  const hosted = Boolean(process.env.RENDER);
-  const haveCookies = await hasYoutubeCookiesFile(cookiesFile);
-  const clientSets: Array<string | undefined> = hosted
-    ? haveCookies
-      ? ["web", "web_safari", "tv"]
-      : ["web_safari,ios"]
-    : [undefined, "web_safari,ios,mweb", "tv,web_embedded"];
-  const formatSets = hosted ? ["bv*+ba/b"] : [fmt, "bv*+ba/b"];
-  const cookieTries = await cookieAttempts("auto", {
-    cookiesFile,
-    includeNone: !haveCookies,
-  });
-  const cookieOrder = [
-    ...cookieTries.filter((c) => c.args.length),
-    ...cookieTries.filter((c) => !c.args.length),
-  ];
+  let { code, stderr } = await run(["--extractor-args", "youtube:player_client=tv,android,ios,web"]);
+  let lastStderr = stderr;
+  if (code === 0) {
+    const match = await pickDownloaded(destDir, fileId);
+    if (match) return match;
+  }
 
-  let lastStderr = "";
-  for (const cookies of cookieOrder) {
-    for (const client of clientSets) {
-      for (const format of formatSets) {
-        const label = cookies.args.length ? cookies.label : "sin cookies";
-        onProgress?.(
-          `Descargando en ${h}p (${client?.split(",")[0] ?? "auto"} · ${label})…`,
-        );
-        const extra = [
-          "-f",
-          format,
-          ...(client ? ["--extractor-args", `youtube:player_client=${client}`] : []),
-          ...cookies.args,
-        ];
-        const { code, stderr } = await run(extra);
-        lastStderr = stderr;
-        if (code === 0) {
-          const match = await pickDownloaded(destDir, fileId);
-          if (match) return match;
-        }
+  // YouTube bot-check: reuse the browser session without showing a cookies UI.
+  if (/not a bot|Sign in to confirm/i.test(lastStderr) || lastMinutes) {
+    onProgress?.(
+      lastMinutes ? `Reintentando últimos ${lastMinutes} min…` : `Descargando vídeo en ${h}p…`,
+    );
+    const cookieTries = await cookieAttempts("auto");
+    for (const cookies of cookieTries) {
+      if (!cookies.args.length) continue;
+      const retry = await run([
+        "--extractor-args",
+        "youtube:player_client=web,android,ios",
+        ...cookies.args,
+      ]);
+      lastStderr = retry.stderr;
+      if (retry.code === 0) {
+        const match = await pickDownloaded(destDir, fileId);
+        if (match) return match;
       }
+    }
+    if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
+      throw new Error(
+        "YouTube pide confirmar que no eres un bot. Abre YouTube en Chrome (sesión iniciada), recarga y vuelve a exportar. Si macOS pide la clave del llavero, acéptala.",
+      );
     }
   }
 
-  if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
-    throw botCheckError();
-  }
-  if (/Requested format is not available|No video formats/i.test(lastStderr)) {
-    throw new Error(
-      "YouTube no entregó un formato de vídeo descargable desde este servidor. Sube el archivo .mp4, o usa la app en tu Mac.",
-    );
-  }
-
   throw downloadError(lastStderr, "formato no disponible");
-}
-
-function botCheckError(): Error {
-  if (!canUseBrowserCookies()) {
-    return new Error(
-      "YouTube bloqueó el enlace en la nube (parece un bot). Sube el vídeo como archivo, o adjunta un cookies.txt: en Chrome instala “Get cookies.txt LOCALLY”, entra a YouTube y exporta el archivo.",
-    );
-  }
-  return new Error(
-    "YouTube pide confirmar que no eres un bot. Abre YouTube en Chrome (sesión iniciada), recarga y vuelve a exportar. Si macOS pide la clave del llavero, acéptala.",
-  );
 }
 
 function liveFormat(height: number): string {
@@ -517,6 +460,8 @@ async function ytdlpLiveStatus(
       "--no-playlist",
       "--print",
       "live_status",
+      "--extractor-args",
+      "youtube:player_client=web,android",
       ...cookieArgs,
       "--",
       url,
@@ -546,7 +491,7 @@ async function ytdlpGetUrls(
       "--remote-components",
       "ejs:github",
       "--extractor-args",
-      "youtube:player_client=web,web_safari",
+      "youtube:player_client=web,mweb,tv,android",
       ...cookieArgs,
       "--",
       url,
@@ -567,7 +512,6 @@ async function downloadLiveYoutube(
   cookiesBrowser: string,
   onProgress?: (msg: string) => void,
   onChunk?: (text: string) => void,
-  cookiesFile?: string,
 ): Promise<{ path: string; filename: string }> {
   const filename = `${fileId}.mp4`;
   const outPath = path.join(destDir, filename);
@@ -576,17 +520,28 @@ async function downloadLiveYoutube(
   const cookieTries = await cookieAttempts(cookiesBrowser, {
     includeNone: true,
     browsers: ["chrome"],
-    cookiesFile,
   });
 
   const firstCookies = cookieTries[0]?.args ?? [];
-  const hasCookies = cookieTries.some((c) => c.args.includes("--cookies"));
-  onProgress?.(hasCookies ? "Cookies de YouTube listas." : "Sin archivo de cookies en el servidor.");
   const status = await ytdlpLiveStatus(ytdlp, url, firstCookies);
   const stillLive = status === "is_live" || status === "true";
 
+  if (!stillLive && status !== "unknown") {
+    onProgress?.(`Ya no es un live (${status}). Cortando los últimos ${liveLastMinutes} min del VOD…`);
+    return downloadVodYoutube(
+      ytdlp,
+      url,
+      destDir,
+      fileId,
+      maxHeight,
+      onProgress,
+      onChunk,
+      liveLastMinutes,
+    );
+  }
+
   onProgress?.(
-    `Snapshot: ${liveLastMinutes} min hacia atrás. No se sigue el directo en tiempo real.`,
+    `Snapshot: ${liveLastMinutes} min hacia atrás desde ahora. El vivo que sigue no se descarga.`,
   );
 
   let lastStderr = "";
@@ -614,30 +569,11 @@ async function downloadLiveYoutube(
   }
 
   if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
-    throw botCheckError();
-  }
-
-  const ended = status === "not_live" || status === "was_live" || status === "post_live";
-  if (ended) {
-    onProgress?.(
-      `El directo ya no está en vivo (${status}). Cortando los últimos ${liveLastMinutes} min del VOD…`,
-    );
-    return downloadVodYoutube(
-      ytdlp,
-      url,
-      destDir,
-      fileId,
-      maxHeight,
-      onProgress,
-      onChunk,
-      liveLastMinutes,
-      cookiesFile,
+    throw new Error(
+      "YouTube pide cookies para el directo. Abre YouTube en Chrome, recarga y vuelve a exportar.",
     );
   }
-
   throw new Error(
-    canUseBrowserCookies()
-      ? `No hay replay/DVR para cortar hacia atrás. ${lastStderr.slice(-200)}`
-      : "YouTube no dejó leer el DVR desde la nube (IP de servidor). Usa la app en tu Mac, o sube el vídeo como archivo.",
+    `No hay replay/DVR para cortar hacia atrás. ${lastStderr.slice(-200)}`,
   );
 }
