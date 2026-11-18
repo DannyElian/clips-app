@@ -22,4 +22,6 @@ ENV FFMPEG_THREADS=1
 ENV PORT=10000
 
 EXPOSE 10000
-CMD ["npm", "start"]
+COPY scripts/start.sh /app/scripts/start.sh
+RUN chmod +x /app/scripts/start.sh
+CMD ["/app/scripts/start.sh"]

@@ -113,17 +113,11 @@ function recordTimeoutMs(minutes: number): number {
   return (minutes + 8) * 60 * 1000;
 }
 
-function cookiesTxtPath(): string {
-  return (
-    process.env.YOUTUBE_COOKIES_FILE ||
-    "/etc/secrets/youtube-cookies.txt"
-  );
-}
-
 function cookiesTxtCandidates(): string[] {
   return [
     process.env.YOUTUBE_COOKIES_FILE,
     "/etc/secrets/youtube-cookies.txt",
+    "/etc/secrets/youtube-cookies_txt",
     path.join(process.cwd(), "data", "youtube-cookies.txt"),
   ].filter((p, i, all): p is string => Boolean(p) && all.indexOf(p) === i);
 }
@@ -416,12 +410,11 @@ async function downloadVodYoutube(
       onChunk,
     });
 
-  const clientSets: Array<string | undefined> = [
-    undefined,
-    "web_safari,ios,mweb",
-    "tv,web_embedded",
-  ];
-  const formatSets = [fmt, "bv*+ba/b"];
+  const hosted = Boolean(process.env.RENDER);
+  const clientSets: Array<string | undefined> = hosted
+    ? [undefined, "web_safari,ios"]
+    : [undefined, "web_safari,ios,mweb", "tv,web_embedded"];
+  const formatSets = hosted ? ["bv*+ba/b"] : [fmt, "bv*+ba/b"];
   const cookieTries = await cookieAttempts("auto", { cookiesFile });
   const cookieOrder = [
     ...cookieTries.filter((c) => c.args.length),
@@ -567,6 +560,8 @@ async function downloadLiveYoutube(
   });
 
   const firstCookies = cookieTries[0]?.args ?? [];
+  const hasCookies = cookieTries.some((c) => c.args.includes("--cookies"));
+  onProgress?.(hasCookies ? "Cookies de YouTube listas." : "Sin archivo de cookies en el servidor.");
   const status = await ytdlpLiveStatus(ytdlp, url, firstCookies);
   const stillLive = status === "is_live" || status === "true";
 
@@ -602,9 +597,10 @@ async function downloadLiveYoutube(
     throw botCheckError();
   }
 
-  if (!stillLive) {
+  const ended = status === "not_live" || status === "was_live" || status === "post_live";
+  if (ended) {
     onProgress?.(
-      `Sin HLS DVR (${status}). Cortando los últimos ${liveLastMinutes} min del VOD…`,
+      `El directo ya no está en vivo (${status}). Cortando los últimos ${liveLastMinutes} min del VOD…`,
     );
     return downloadVodYoutube(
       ytdlp,
@@ -620,6 +616,8 @@ async function downloadLiveYoutube(
   }
 
   throw new Error(
-    `No hay replay/DVR para cortar hacia atrás. ${lastStderr.slice(-200)}`,
+    canUseBrowserCookies()
+      ? `No hay replay/DVR para cortar hacia atrás. ${lastStderr.slice(-200)}`
+      : "YouTube no dejó leer el DVR desde la nube (IP de servidor). Usa la app en tu Mac, o sube el vídeo como archivo.",
   );
 }
