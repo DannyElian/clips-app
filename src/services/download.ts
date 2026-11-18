@@ -78,22 +78,17 @@ function qualityHeight(maxHeight: number): 360 | 720 | 1080 {
   return 360;
 }
 
-/** Formats capped at the chosen height. Prefer H.264 MP4 (faster download + decode). Never fall back to unrestricted best. */
+/** Prefer the chosen height and H.264, but always fall back to whatever YouTube actually offers. */
 function vodFormat(height: number): { fmt: string; sort: string } {
   const h = qualityHeight(height);
-  const cap = `bv*[height<=${h}][vcodec^=avc]+ba[acodec^=mp4a]/bv*[height<=${h}]+ba/b[height<=${h}]`;
-  if (h <= 360) {
-    return { fmt: `18/${cap}`, sort: "res:360,codec:h264:vp9,ext:mp4:m4a" };
-  }
-  if (h <= 720) {
-    return {
-      fmt: `22/bv*[height<=720][height>=480][vcodec^=avc]+ba[acodec^=mp4a]/${cap}`,
-      sort: "res:720,codec:h264:vp9,ext:mp4:m4a",
-    };
-  }
   return {
-    fmt: `bv*[height<=1080][height>=720][vcodec^=avc]+ba[acodec^=mp4a]/${cap}`,
-    sort: "res:1080,codec:h264:vp9,ext:mp4:m4a",
+    fmt: [
+      `bv*[height<=${h}][vcodec^=avc]+ba[acodec^=mp4a]`,
+      `bv*[height<=${h}]+ba`,
+      `b[height<=${h}]`,
+      "bv*+ba/b",
+    ].join("/"),
+    sort: `res:${h},codec:h264:vp9:av01,ext:mp4:webm`,
   };
 }
 
@@ -401,6 +396,7 @@ async function downloadVodYoutube(
   );
   const outTpl = path.join(destDir, `${fileId}.%(ext)s`);
   const { fmt, sort } = vodFormat(h);
+  const fallbackFmt = "bv*+ba/b";
   const sectionArgs =
     lastMinutes > 0 ? ["--download-sections", `*-${lastMinutes}:00-inf`] : [];
   const baseArgs = [
@@ -417,8 +413,6 @@ async function downloadVodYoutube(
     ...ytdlpSpeedArgs(),
     "-S",
     sort,
-    "-f",
-    fmt,
     "--merge-output-format",
     "mp4",
     "-o",
@@ -429,8 +423,8 @@ async function downloadVodYoutube(
   const timeoutMs = lastMinutes
     ? Math.min(12, Math.max(4, lastMinutes * 1.2 + 3)) * 60 * 1000
     : 45 * 60 * 1000;
-  const run = (extra: string[]) =>
-    runCommand(ytdlp.cmd, [...baseArgs, ...extra, "--", url], {
+  const run = (extra: string[], format = fmt) =>
+    runCommand(ytdlp.cmd, [...baseArgs, "-f", format, ...extra, "--", url], {
       timeoutMs,
       onChunk,
     });
@@ -442,20 +436,23 @@ async function downloadVodYoutube(
     "tv_embedded,android_vr",
     "tv,android,ios,web",
   ];
+  const formats = [fmt, fallbackFmt];
   let lastStderr = "";
   for (const client of clients) {
-    onProgress?.(`Descargando en ${h}p (${client.split(",")[0]})…`);
-    const { code, stderr } = await run([
-      "--extractor-args",
-      `youtube:player_client=${client}`,
-    ]);
-    lastStderr = stderr;
-    if (code === 0) {
-      const match = await pickDownloaded(destDir, fileId);
-      if (match) return match;
-    }
-    if (!/not a bot|Sign in to confirm|Requested format is not available/i.test(stderr) && code !== 0) {
-      break;
+    for (const format of formats) {
+      onProgress?.(`Descargando en ${h}p (${client.split(",")[0]})…`);
+      const { code, stderr } = await run(
+        ["--extractor-args", `youtube:player_client=${client}`],
+        format,
+      );
+      lastStderr = stderr;
+      if (code === 0) {
+        const match = await pickDownloaded(destDir, fileId);
+        if (match) return match;
+      }
+      if (!/not a bot|Sign in to confirm|Requested format is not available/i.test(stderr) && code !== 0) {
+        break;
+      }
     }
   }
 
@@ -464,15 +461,20 @@ async function downloadVodYoutube(
     if (!cookies.args.length) continue;
     onProgress?.(`Reintentando con cookies (${cookies.label})…`);
     for (const client of ["android,ios,tv", "web,android,ios"]) {
-      const retry = await run([
-        "--extractor-args",
-        `youtube:player_client=${client}`,
-        ...cookies.args,
-      ]);
-      lastStderr = retry.stderr;
-      if (retry.code === 0) {
-        const match = await pickDownloaded(destDir, fileId);
-        if (match) return match;
+      for (const format of formats) {
+        const retry = await run(
+          [
+            "--extractor-args",
+            `youtube:player_client=${client}`,
+            ...cookies.args,
+          ],
+          format,
+        );
+        lastStderr = retry.stderr;
+        if (retry.code === 0) {
+          const match = await pickDownloaded(destDir, fileId);
+          if (match) return match;
+        }
       }
     }
   }
