@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/uploads/
+data/jobs/
+data/sample-vod.mp4
+data/
+*.log
+.DS_Store
+.env
+.env.*

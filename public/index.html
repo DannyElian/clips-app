@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CLIPS — Recortes verticales</title>
+    <link rel="icon" href="/logo.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Outfit:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="orb orb-a" aria-hidden="true"></div>
+    <div class="orb orb-b" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="top">
+      <div class="brand-row">
+        <img class="logo-mark" src="/logo.png" alt="" width="1024" height="819" />
+        <span class="logo">CLIPS</span>
+        <span class="pill">9:16 · TikTok / Reels</span>
+      </div>
+      <h1>De un VOD a clips que pegan.</h1>
+      <p class="lede">
+        Elige <strong>un vídeo</strong> o <strong>dos apilados</strong>. Detectamos los mejores
+        momentos y exportamos vertical, listo para subir.
+      </p>
+    </header>
+
+    <main class="grid">
+      <section class="panel" aria-labelledby="upload-heading">
+        <form id="job-form" novalidate>
+          <p class="step" id="upload-heading">01 · Cómo lo montas</p>
+          <div class="mode-switch" role="radiogroup" aria-label="Tipo de origen">
+            <label class="mode-card">
+              <input type="radio" name="sourceMode" value="single" checked />
+              <span class="mode-phone" aria-hidden="true">
+                <span class="mode-bezel">
+                  <span class="mode-screen one"></span>
+                </span>
+              </span>
+              <span class="mode-copy">
+                <span class="mode-kicker">Opción A</span>
+                <span class="mode-title">1 vídeo</span>
+                <span class="mode-desc">Un enlace o archivo. Divide cámara/juego o déjalo a pantalla completa.</span>
+              </span>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="sourceMode" value="pair" />
+              <span class="mode-phone" aria-hidden="true">
+                <span class="mode-bezel">
+                  <span class="mode-screen two">
+                    <span></span>
+                    <span></span>
+                  </span>
+                </span>
+              </span>
+              <span class="mode-copy">
+                <span class="mode-kicker">Opción B</span>
+                <span class="mode-title">2 vídeos</span>
+                <span class="mode-desc">Cara + gameplay (o lo que quieras). Tú eliges quién va arriba y el audio.</span>
+              </span>
+            </label>
+          </div>
+
+          <div id="single-source">
+            <p class="step">02 · Origen</p>
+            <label class="url-field">
+              Enlace (YouTube, Twitch, Kick…)
+              <input type="url" id="sourceUrl" name="sourceUrl" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" />
+            </label>
+            <p class="or-split">o suelta un archivo</p>
+          <label class="file-drop" id="drop">
+              <input type="file" id="video" name="video" accept="video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v" />
+              <span class="file-label" id="file-label">Arrastra el vídeo aquí</span>
+              <span class="file-hint">mp4 · mkv · mov · webm · hasta ~2 GB</span>
+          </label>
+          </div>
+
+          <div id="pair-source" class="hidden">
+            <p class="step">02 · Los dos orígenes</p>
+            <div class="pair-grid">
+              <div class="slot">
+                <p class="slot-title"><span>A</span> Vídeo 1</p>
+                <label class="url-field">
+                  Enlace
+                  <input type="url" id="sourceUrlA" name="sourceUrlA" placeholder="https://…" autocomplete="off" />
+                </label>
+                <label class="file-drop compact" id="drop-a">
+                  <input type="file" id="videoA" name="video" accept="video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v" />
+                  <span class="file-label" id="file-label-a">Archivo 1</span>
+                  <span class="file-hint">o suelta aquí</span>
+                </label>
+              </div>
+              <div class="slot">
+                <p class="slot-title"><span>B</span> Vídeo 2</p>
+                <label class="url-field">
+                  Enlace
+                  <input type="url" id="sourceUrlB" name="sourceUrlB" placeholder="https://…" autocomplete="off" />
+                </label>
+                <label class="file-drop compact" id="drop-b">
+                  <input type="file" id="videoB" name="videoB" accept="video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v" />
+                  <span class="file-label" id="file-label-b">Archivo 2</span>
+                  <span class="file-hint">o suelta aquí</span>
+                </label>
+              </div>
+            </div>
+            <div id="pair-opts">
+              <fieldset class="row">
+                <legend>Orden</legend>
+                <label><input type="radio" name="pairOrder" value="a-top" checked /> 1 arriba / 2 abajo</label>
+                <label><input type="radio" name="pairOrder" value="b-top" /> 2 arriba / 1 abajo</label>
+              </fieldset>
+              <fieldset class="row" id="pair-highlight-fs">
+                <legend>Highlights</legend>
+                <label><input type="radio" name="pairHighlight" value="a" checked /> En el vídeo 1</label>
+                <label><input type="radio" name="pairHighlight" value="b" /> En el vídeo 2</label>
+              </fieldset>
+              <fieldset class="row">
+                <legend>Audio</legend>
+                <label><input type="checkbox" name="pairAudioA" checked /> Vídeo 1</label>
+                <label><input type="checkbox" name="pairAudioB" /> Vídeo 2</label>
+              </fieldset>
+            </div>
+          </div>
+
+          <fieldset class="row live-row">
+            <legend>Directo</legend>
+            <label>
+              <input type="checkbox" name="liveMode" id="liveMode" />
+              Es un directo: solo los últimos minutos
+            </label>
+          </fieldset>
+          <div id="live-panel" class="hidden">
+            <p class="note">
+              Corta <strong>hacia atrás</strong> desde el momento en que das a exportar. Si el directo sigue, eso no se espera ni se graba.
+            </p>
+            <div class="duration-row">
+              <div class="chips" id="live-chips" role="group" aria-label="Minutos del directo">
+                <button type="button" data-min="5">5 min</button>
+                <button type="button" data-min="10">10 min</button>
+                <button type="button" data-min="15">15 min</button>
+                <button type="button" data-min="30" class="on">30 min</button>
+                <button type="button" data-min="60">60 min</button>
+                <button type="button" data-min="90">90 min</button>
+                <button type="button" data-min="120">120 min</button>
+              </div>
+              <label>
+                Últimos minutos (1–180)
+                <input id="liveLastMinutes" name="liveLastMinutes" type="number" min="1" max="180" value="30" />
+              </label>
+            </div>
+            <label>
+              Cookies de YouTube (solo directos)
+              <select name="cookiesBrowser" id="cookiesBrowser">
+                <option value="auto" selected>Auto (Chrome, luego Safari…)</option>
+                <option value="chrome">Chrome</option>
+                <option value="safari">Safari</option>
+                <option value="firefox">Firefox</option>
+                <option value="brave">Brave</option>
+                <option value="edge">Edge</option>
+                <option value="none">Ninguna</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="cut-panel">
+            <p class="step">03 · Recorte</p>
+            <fieldset class="row">
+              <legend>Modo del clip</legend>
+              <label><input type="radio" name="layout" value="dual" checked /> Dividir (cámara / juego)</label>
+              <label><input type="radio" name="layout" value="full" /> Pantalla completa</label>
+            </fieldset>
+            <p class="note" id="layout-note">
+              En modo dividido detectamos la cam y la ponemos <strong>arriba</strong>, juego <strong>abajo</strong>.
+            </p>
+            <div id="cam-panel">
+              <fieldset class="row">
+                <legend>Dónde está la webcam</legend>
+                <label><input type="radio" name="webcamPreset" value="auto" checked /> Detectar cara</label>
+                <label><input type="radio" name="webcamPreset" value="bottom-right" /> Abajo dcha.</label>
+                <label><input type="radio" name="webcamPreset" value="bottom-left" /> Abajo izda.</label>
+                <label><input type="radio" name="webcamPreset" value="top-right" /> Arriba dcha.</label>
+                <label><input type="radio" name="webcamPreset" value="top-left" /> Arriba izda.</label>
+                <label><input type="radio" name="webcamPreset" value="custom" /> Personalizado</label>
+              </fieldset>
+              <div id="custom-webcam" class="custom-grid hidden">
+                <label>Cám. X <input name="webcamX" type="number" min="0" max="1" step="0.01" value="0.01" /></label>
+                <label>Cám. Y <input name="webcamY" type="number" min="0" max="1" step="0.01" value="0.68" /></label>
+                <label>Cám. W <input name="webcamW" type="number" min="0.02" max="1" step="0.01" value="0.24" /></label>
+                <label>Cám. H <input name="webcamH" type="number" min="0.02" max="1" step="0.01" value="0.30" /></label>
+              </div>
+              <details class="advanced">
+                <summary>Recorte de gameplay</summary>
+                <div class="custom-grid">
+                  <label>Juego X <input name="gameplayX" type="number" min="0" max="1" step="0.01" value="0" /></label>
+                  <label>Juego Y <input name="gameplayY" type="number" min="0" max="1" step="0.01" value="0" /></label>
+                  <label>Juego W <input name="gameplayW" type="number" min="0.02" max="1" step="0.01" value="1" /></label>
+                  <label>Juego H <input name="gameplayH" type="number" min="0.02" max="1" step="0.01" value="1" /></label>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <p class="step">04 · Tiempo y calidad</p>
+          <fieldset class="row">
+            <legend>Cómo elegir los clips</legend>
+            <label><input type="radio" name="clipPickMode" value="split" /> Partir el vídeo</label>
+            <label><input type="radio" name="clipPickMode" value="highlights" checked /> Mejores momentos</label>
+          </fieldset>
+          <p class="note" id="pick-note">
+            Recorre el vídeo entero y se queda con los momentos de más energía / cambios de escena.
+          </p>
+          <p class="note">Cada recorte usa exactamente esta duración. La calidad limita descarga y export.</p>
+          <div class="duration-row">
+            <div class="chips" id="duration-chips" role="group" aria-label="Duración rápida">
+              <button type="button" data-sec="15">15 s</button>
+              <button type="button" data-sec="20">20 s</button>
+              <button type="button" data-sec="30" class="on">30 s</button>
+              <button type="button" data-sec="45">45 s</button>
+              <button type="button" data-sec="60">60 s</button>
+            </div>
+            <label>
+              Duración (segundos)
+              <input id="clipDurationSec" name="clipDurationSec" type="number" min="5" max="180" value="30" />
+            </label>
+          </div>
+          <div class="knobs">
+            <label>
+              Calidad
+              <select name="quality" id="quality">
+                <option value="360">360p — más rápido</option>
+                <option value="720" selected>720p — equilibrio</option>
+                <option value="1080">1080p — máximo</option>
+              </select>
+            </label>
+            <label>
+              Cantidad de clips
+              <input name="maxClips" type="number" min="1" max="200" value="12" />
+            </label>
+            <label id="audio-knob">
+              Percentil de audio
+              <input name="audioPeakPercentile" type="number" min="50" max="99" value="88" />
+            </label>
+          </div>
+
+          <button type="submit" id="submit" class="cta" disabled>Buscar highlights y exportar</button>
+          <button type="button" id="cancel" class="cta stop hidden">Detener</button>
+        </form>
+      </section>
+
+      <section class="panel preview" aria-labelledby="status-heading">
+        <p class="step" id="status-heading">Live</p>
+        <div id="status" class="status idle">Elige 1 o 2 vídeos y pega un enlace…</div>
+        <div id="meta" class="meta"></div>
+        <div id="clips" class="clips"></div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>Local · cara auto · highlights · vertical. El título y los subtítulos los pones tú al publicar.</p>
+    </footer>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
