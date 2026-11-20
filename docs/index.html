@@ -1,26 +1,100 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Clips_GTA</title>
-    <style>
-      body { font-family: system-ui, sans-serif; background: #0b0b10; color: #eee; max-width: 42rem; margin: 3rem auto; padding: 0 1.2rem; line-height: 1.5; }
-      a { color: #ff6ec7; }
-      h1 { letter-spacing: -0.03em; }
-    </style>
+    <meta
+      name="description"
+      content="Clips_GTA is a desktop app that turns gameplay VODs and lives into vertical 9:16 clips and posts them to your TikTok account."
+    />
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="stylesheet" href="site.css" />
   </head>
   <body>
-    <h1>Clips_GTA</h1>
-    <p>
-      Aplicación de escritorio para recortar VODs y directos de gameplay en clips
-      verticales 9:16, listos para TikTok.
-    </p>
-    <p>El procesado corre en tu ordenador. Puedes conectar TikTok para publicar desde la app.</p>
-    <p>
-      <a href="terms.html">Términos de servicio</a>
-      ·
-      <a href="privacy.html">Política de privacidad</a>
-    </p>
+    <div class="wrap">
+      <header class="nav">
+        <a class="brand" href="index.html">
+          <img src="app-icon.png" width="1024" height="1024" alt="Clips_GTA app icon" />
+          Clips_GTA
+        </a>
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <img class="app-icon" src="app-icon.png" width="1024" height="1024" alt="Clips_GTA" />
+        <div>
+          <h1>Clips_GTA</h1>
+          <p class="lede">
+            Clips_GTA is a finished desktop product for creators. It cuts gameplay VODs
+            and live recordings into vertical 9:16 clips, then publishes them to the
+            creator’s own TikTok account with Login Kit and the Content Posting API.
+          </p>
+          <p class="official">
+            Official website and Desktop URL:
+            <a href="https://dannyelian.github.io/clips-app/">https://dannyelian.github.io/clips-app/</a>
+          </p>
+        </div>
+      </section>
+
+      <section id="features" class="grid">
+        <article class="card">
+          <h2>One video or two stacked</h2>
+          <p>
+            Import a single VOD or two sources (facecam + gameplay). Clips_GTA stacks them
+            for TikTok (camera on top, game below) or keeps a full-frame layout.
+          </p>
+        </article>
+        <article class="card">
+          <h2>Highlights or even splits</h2>
+          <p>
+            Pick best moments from the whole file, or split it into a fixed number of
+            clips with the duration you choose. Export at 360p, 720p, or 1080p.
+          </p>
+        </article>
+        <article class="card">
+          <h2>Post to TikTok from the app</h2>
+          <p>
+            Sign in with TikTok, then publish each exported clip. Videos are processed on
+            your computer. Clips_GTA does not host other people’s gameplay in the cloud.
+          </p>
+        </article>
+        <article class="card">
+          <h2>Lives and VODs</h2>
+          <p>
+            Paste a YouTube or Twitch link, or drop a local file. For lives, export the
+            last N minutes from the DVR window instead of waiting on the live edge.
+          </p>
+        </article>
+      </section>
+
+      <section id="how" class="card" style="margin-bottom: 2rem">
+        <h2>How Clips_GTA works</h2>
+        <ol class="steps">
+          <li>Open Clips_GTA on your desktop (the app UI at your local Clips_GTA server).</li>
+          <li>Add a gameplay file or URL. Optionally add a second camera/game video.</li>
+          <li>Choose clip length, count, quality, and highlight vs split mode.</li>
+          <li>Clips_GTA analyzes audio and scenes, then exports vertical MP4 files.</li>
+          <li>Connect TikTok and tap TikTok on a clip to upload to your account.</li>
+        </ol>
+      </section>
+
+      <footer>
+        <div class="row">
+          <img src="app-icon.png" width="1024" height="1024" alt="Clips_GTA" />
+          <strong style="color: var(--text)">Clips_GTA</strong>
+          <a href="https://dannyelian.github.io/clips-app/">https://dannyelian.github.io/clips-app/</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+        </div>
+        <p>© 2026 Clips_GTA. Desktop app for gameplay clips on TikTok.</p>
+      </footer>
+    </div>
   </body>
 </html>

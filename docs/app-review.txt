@@ -1,0 +1,21 @@
+Resubmission after reviewer notes (app icon, website URL, app name).
+
+Clips_GTA is a production desktop app. The official website, desktop URL, Privacy Policy and Terms of Service all live under the same site and all display the name Clips_GTA and the Clips_GTA app icon (including favicon):
+
+- Website / Desktop URL: https://dannyelian.github.io/clips-app/
+- Privacy Policy: https://dannyelian.github.io/clips-app/privacy.html
+- Terms of Service: https://dannyelian.github.io/clips-app/terms.html
+
+The homepage is a full product page (features and how Clips_GTA works), not a login wall. The desktop software runs on the creator’s computer; the website is the public product identity for Clips_GTA.
+
+How products and scopes work in Clips_GTA
+
+Login Kit (Desktop): the user clicks Conectar TikTok. OAuth v2 with PKCE. Redirect URI http://localhost:8787/api/tiktok/callback. Tokens stay on the user’s machine.
+
+user.info.basic: show the connected TikTok display name in Clips_GTA.
+
+Content Posting API + video.publish: FILE_UPLOAD of clips the user exported, SELF_ONLY until audited.
+
+video.upload: inbox fallback if direct post is not allowed.
+
+We do not use Share Kit, Display API, or other scopes.
