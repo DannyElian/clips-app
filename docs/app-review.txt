@@ -1,6 +1,6 @@
 Resubmission after reviewer notes (Terms of Service, Privacy Policy, Website URL).
 
-Clips is a finished desktop product for any kind of vertical clip (comedy, streams, gameplay, IRL, and other video). The official website is a full product site (home, download, support, FAQ, requirements) — not a login page and not a one-screen landing page. Privacy Policy and Terms of Service are complete standalone legal documents, linked from every page, and hosted on the same Clips site:
+Clips_GTA is a finished desktop product for any kind of vertical clip (comedy, streams, gameplay, IRL, and other video). The official website is a full product site (home, download, support, FAQ, requirements) — not a login page and not a one-screen landing page. Privacy Policy and Terms of Service are complete standalone legal documents, linked from every page, and hosted on the same Clips_GTA site:
 
 - Website / Desktop URL: https://dannyelian.github.io/clips-app/
 - Download: https://dannyelian.github.io/clips-app/download.html
@@ -8,16 +8,16 @@ Clips is a finished desktop product for any kind of vertical clip (comedy, strea
 - Privacy Policy: https://dannyelian.github.io/clips-app/privacy.html
 - Terms of Service: https://dannyelian.github.io/clips-app/terms.html
 
-App name on this listing must be exactly: Clips
-(The website title, brand, Privacy Policy and Terms of Service all say Clips.)
+App name on this listing must be exactly: Clips_GTA
+(The website title, brand, Privacy Policy and Terms of Service all say Clips_GTA.)
 
-No test account is required: the homepage is publicly readable. TikTok login happens only inside the local desktop app after the user starts Clips on their computer.
+No test account is required: the homepage is publicly readable. TikTok login happens only inside the local desktop app after the user starts Clips_GTA on their computer.
 
-How products and scopes work in Clips
+How products and scopes work in Clips_GTA
 
 Login Kit (Desktop): the user clicks Conectar TikTok. OAuth v2 with PKCE. Redirect URI http://localhost:8787/api/tiktok/callback. Tokens stay on the user’s machine.
 
-user.info.basic: show the connected TikTok display name in Clips.
+user.info.basic: show the connected TikTok display name in Clips_GTA.
 
 Content Posting API + video.publish: FILE_UPLOAD of clips the user exported, SELF_ONLY until audited.
 

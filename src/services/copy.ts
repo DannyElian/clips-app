@@ -189,7 +189,7 @@ function gameTags(sourceName?: string, sourceUrl?: string): string[] {
   else if (/warzone/.test(blob)) extra.push("#Warzone");
   else if (/minecraft/.test(blob)) extra.push("#Minecraft");
   else extra.push("#gaming", "#clips");
-  extra.push("#clips");
+  extra.push("#Clips_GTA");
   return [...new Set(extra)];
 }
 
