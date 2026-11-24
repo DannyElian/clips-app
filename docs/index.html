@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Clips_GTA</title>
+    <title>Clips</title>
     <meta
       name="description"
-      content="Clips_GTA is a desktop app that turns gameplay VODs and lives into vertical 9:16 clips and posts them to your TikTok account."
+      content="Clips desktop software: turn any video into vertical clips — comedy, streams, gameplay, IRL — and publish them to TikTok. Product site, download, support, Privacy Policy and Terms of Service."
     />
     <link rel="icon" href="favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -16,84 +16,146 @@
     <div class="wrap">
       <header class="nav">
         <a class="brand" href="index.html">
-          <img src="app-icon.png" width="1024" height="1024" alt="Clips_GTA app icon" />
-          Clips_GTA
+          <img src="app-icon.png" width="1024" height="1024" alt="Clips app icon" />
+          Clips
         </a>
         <nav>
-          <a href="#features">Features</a>
-          <a href="#how">How it works</a>
+          <a href="index.html">Home</a>
+          <a href="#product">Product</a>
+          <a href="download.html">Download</a>
+          <a href="support.html">Support</a>
           <a href="privacy.html">Privacy Policy</a>
           <a href="terms.html">Terms of Service</a>
         </nav>
       </header>
 
       <section class="hero">
-        <img class="app-icon" src="app-icon.png" width="1024" height="1024" alt="Clips_GTA" />
+        <img class="app-icon" src="app-icon.png" width="1024" height="1024" alt="Clips" />
         <div>
-          <h1>Clips_GTA</h1>
+          <h1>Clips</h1>
           <p class="lede">
-            Clips_GTA is a finished desktop product for creators. It cuts gameplay VODs
-            and live recordings into vertical 9:16 clips, then publishes them to the
-            creator’s own TikTok account with Login Kit and the Content Posting API.
+            Clips is desktop software for any kind of video: comedy, reactions,
+            streams, gameplay, IRL, podcasts, or whatever you record. You import a
+            file or a URL, Clips finds moments, exports vertical 9:16 MP4s, and can
+            publish them to the TikTok account you connect.
           </p>
           <p class="official">
-            Official website and Desktop URL:
+            Official Clips website:
             <a href="https://dannyelian.github.io/clips-app/">https://dannyelian.github.io/clips-app/</a>
           </p>
+          <div class="pills">
+            <span class="pill">Desktop app</span>
+            <span class="pill">Local processing</span>
+            <span class="pill">TikTok Login Kit</span>
+            <span class="pill">Content Posting API</span>
+          </div>
         </div>
       </section>
 
-      <section id="features" class="grid">
+      <section id="product" class="block">
+        <h2>What Clips is</h2>
+        <p>
+          Clips is not a social network, not a video host, and not a login wall. This
+          website is the public product home for Clips: features, how to run the
+          desktop app, support, Privacy Policy, and Terms of Service. The software itself
+          runs on your computer (typically at http://localhost:8787 after you start it).
+        </p>
+        <p>
+          Typical session: open Clips, add one file or URL — or two sources (for
+          example face + scene) — set clip length and count, export, then optionally
+          tap TikTok on a clip. You stay the publisher of every video.
+        </p>
+      </section>
+
+      <section class="grid">
         <article class="card">
-          <h2>One video or two stacked</h2>
+          <h2>Layouts</h2>
           <p>
-            Import a single VOD or two sources (facecam + gameplay). Clips_GTA stacks them
-            for TikTok (camera on top, game below) or keeps a full-frame layout.
+            Dual (face stacked over the main scene), full frame, or two videos stacked.
+            Optional face detection can place a webcam pane.
           </p>
         </article>
         <article class="card">
-          <h2>Highlights or even splits</h2>
+          <h2>Clip selection</h2>
           <p>
-            Pick best moments from the whole file, or split it into a fixed number of
-            clips with the duration you choose. Export at 360p, 720p, or 1080p.
+            Highlights from audio energy and scene changes, or even splits of a duration
+            you choose. Quality targets: 360p, 720p, 1080p.
           </p>
         </article>
         <article class="card">
-          <h2>Post to TikTok from the app</h2>
+          <h2>TikTok publish</h2>
           <p>
-            Sign in with TikTok, then publish each exported clip. Videos are processed on
-            your computer. Clips_GTA does not host other people’s gameplay in the cloud.
+            OAuth Login Kit on desktop. Content Posting upload of files you exported.
+            Tokens stay on the machine that runs Clips.
           </p>
         </article>
         <article class="card">
-          <h2>Lives and VODs</h2>
+          <h2>Sources</h2>
           <p>
-            Paste a YouTube or Twitch link, or drop a local file. For lives, export the
-            last N minutes from the DVR window instead of waiting on the live edge.
+            Local MP4/MKV/MOV/WEBM, or a YouTube/Twitch URL. Lives can rewind the last N
+            minutes of DVR instead of clipping the live edge. Any genre.
           </p>
         </article>
       </section>
 
-      <section id="how" class="card" style="margin-bottom: 2rem">
-        <h2>How Clips_GTA works</h2>
-        <ol class="steps">
-          <li>Open Clips_GTA on your desktop (the app UI at your local Clips_GTA server).</li>
-          <li>Add a gameplay file or URL. Optionally add a second camera/game video.</li>
-          <li>Choose clip length, count, quality, and highlight vs split mode.</li>
-          <li>Clips_GTA analyzes audio and scenes, then exports vertical MP4 files.</li>
-          <li>Connect TikTok and tap TikTok on a clip to upload to your account.</li>
+      <section id="how" class="block">
+        <h2>How a job runs</h2>
+        <ol>
+          <li>Start Clips on your computer (see <a href="download.html">Download</a>).</li>
+          <li>Open the Clips interface in your browser at the local address shown by the app.</li>
+          <li>Paste a URL or drop a file (any type of clip source). Optionally add a second video.</li>
+          <li>Choose duration, number of clips, quality, and highlights vs split.</li>
+          <li>Wait for download (if URL), analysis, and export. MP4s appear under each job.</li>
+          <li>Copy the suggested caption, or connect TikTok and publish from the same screen.</li>
         </ol>
+      </section>
+
+      <section class="block">
+        <h2>System requirements</h2>
+        <table class="specs">
+          <tr><th>Computer</th><td>macOS or Linux/Windows with Node.js 18+, ffmpeg, and yt-dlp for URLs</td></tr>
+          <tr><th>Network</th><td>Needed only for URL downloads and TikTok OAuth/upload. Files can stay local.</td></tr>
+          <tr><th>TikTok</th><td>Your own TikTok account. Clips posts only after you connect it.</td></tr>
+          <tr><th>Price</th><td>Clips software on this site is provided at no charge for personal use under the Terms of Service.</td></tr>
+        </table>
+      </section>
+
+      <section class="block faq">
+        <h2>Frequently asked questions</h2>
+        <details open>
+          <summary>Is this homepage a login page?</summary>
+          <p>No. You can read the full Clips product, Download, Support, Privacy Policy, and Terms of Service without an account. TikTok sign-in happens inside the desktop app, not on this website.</p>
+        </details>
+        <details>
+          <summary>Where are my videos stored?</summary>
+          <p>On the computer that runs Clips, under that machine’s job folders. This website does not receive your VODs.</p>
+        </details>
+        <details>
+          <summary>Who publishes to TikTok?</summary>
+          <p>You do. Clips only uploads a file you exported after you grant TikTok permissions in Login Kit.</p>
+        </details>
+        <details>
+          <summary>Where are the legal documents?</summary>
+          <p>
+            Privacy Policy:
+            <a href="https://dannyelian.github.io/clips-app/privacy.html">https://dannyelian.github.io/clips-app/privacy.html</a>
+            · Terms of Service:
+            <a href="https://dannyelian.github.io/clips-app/terms.html">https://dannyelian.github.io/clips-app/terms.html</a>
+          </p>
+        </details>
       </section>
 
       <footer>
         <div class="row">
-          <img src="app-icon.png" width="1024" height="1024" alt="Clips_GTA" />
-          <strong style="color: var(--text)">Clips_GTA</strong>
+          <img src="app-icon.png" width="1024" height="1024" alt="Clips" />
+          <strong style="color: var(--text)">Clips</strong>
           <a href="https://dannyelian.github.io/clips-app/">https://dannyelian.github.io/clips-app/</a>
+          <a href="download.html">Download</a>
+          <a href="support.html">Support</a>
           <a href="privacy.html">Privacy Policy</a>
           <a href="terms.html">Terms of Service</a>
         </div>
-        <p>© 2026 Clips_GTA. Desktop app for gameplay clips on TikTok.</p>
+        <p>© 2026 Clips. Desktop software for vertical clips of any kind. All pages on this site identify the product as Clips.</p>
       </footer>
     </div>
   </body>

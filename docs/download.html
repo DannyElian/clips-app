@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clips Download</title>
+    <meta name="description" content="Download and run the Clips desktop app." />
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="nav">
+        <a class="brand" href="index.html">
+          <img src="app-icon.png" width="1024" height="1024" alt="Clips app icon" />
+          Clips
+        </a>
+        <nav>
+          <a href="index.html">Home</a>
+          <a href="download.html">Download</a>
+          <a href="support.html">Support</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+        </nav>
+      </header>
+      <article class="legal">
+        <p>
+          <img src="app-icon.png" width="64" height="64" alt="Clips" style="border-radius:14px;vertical-align:middle;margin-right:0.6rem" />
+          <strong>Clips</strong>
+        </p>
+        <h1>Download Clips</h1>
+        <p>
+          Official website:
+          <a href="https://dannyelian.github.io/clips-app/">https://dannyelian.github.io/clips-app/</a>
+        </p>
+        <p>
+          Clips is distributed as source you run locally. There is no cloud login on this page.
+        </p>
+        <h2>Get the software</h2>
+        <ol>
+          <li>Install Node.js 18 or newer, ffmpeg, and Python 3.11 if you use face detection.</li>
+          <li>
+            Clone
+            <a href="https://github.com/DannyElian/clips-app">https://github.com/DannyElian/clips-app</a>
+          </li>
+          <li>In the project folder run <code>npm install</code>.</li>
+          <li>Start with <code>./servidor.sh on</code> or <code>npm start</code>.</li>
+          <li>Open <a href="http://localhost:8787">http://localhost:8787</a> on the same computer.</li>
+        </ol>
+        <h2>TikTok (optional)</h2>
+        <p>
+          To publish from Clips you need TikTok developer credentials in a local
+          <code>.env</code> file on your machine. OAuth returns to
+          <code>http://localhost:8787/api/tiktok/callback</code>. See
+          <a href="privacy.html">Privacy Policy</a> for what that token is used for.
+        </p>
+        <h2>License</h2>
+        <p>Use is subject to the <a href="terms.html">Clips Terms of Service</a>.</p>
+      </article>
+      <footer>
+        <div class="row">
+          <img src="app-icon.png" alt="Clips" />
+          <strong style="color: var(--text)">Clips</strong>
+          <a href="index.html">Home</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
