@@ -24,11 +24,25 @@
         <span class="logo">CLIPS</span>
         <span class="pill">9:16 · TikTok / Reels</span>
       </div>
+      <nav class="app-nav" aria-label="Herramientas">
+        <button type="button" class="nav-btn on" data-view="clips">Recortes</button>
+        <button type="button" class="nav-btn" data-view="transcribe">Transcribir</button>
+        <button type="button" class="nav-btn" data-view="tools">Herramientas</button>
+      </nav>
+    </header>
+
+    <div id="view-clips">
+    <header class="top tight">
       <h1>De un VOD a clips que pegan.</h1>
       <p class="lede">
         Elige <strong>un vídeo</strong> o <strong>dos apilados</strong>. Detectamos los mejores
         momentos y exportamos vertical, listo para subir.
       </p>
+      <div class="tiktok-bar">
+        <span id="tiktok-label">TikTok</span>
+        <button type="button" id="tiktok-connect" class="tiktok-btn">Conectar TikTok</button>
+        <button type="button" id="tiktok-disconnect" class="tiktok-btn ghost hidden">Salir</button>
+      </div>
     </header>
 
     <main class="grid">
@@ -211,12 +225,53 @@
             <legend>Cómo elegir los clips</legend>
             <label><input type="radio" name="clipPickMode" value="split" /> Partir el vídeo</label>
             <label><input type="radio" name="clipPickMode" value="highlights" checked /> Mejores momentos</label>
+            <label><input type="radio" name="clipPickMode" value="full" /> Vídeo completo</label>
           </fieldset>
           <p class="note" id="pick-note">
             Recorre el vídeo entero y se queda con los momentos de más energía / cambios de escena.
           </p>
-          <p class="note">Cada recorte usa exactamente esta duración. La calidad limita descarga y export.</p>
-          <div class="duration-row">
+          <p class="note" id="duration-note">Cada recorte usa exactamente esta duración. La calidad limita descarga y export.</p>
+          <label class="check-line">
+            <input type="checkbox" name="burnOverlay" id="burnOverlay" checked />
+            Poner la frase arriba del vídeo
+          </label>
+          <label class="check-line">
+            <input type="checkbox" name="burnSubs" id="burnSubs" />
+            <span id="burn-subs-text">Traer los clips con subtítulos</span>
+          </label>
+          <div id="sub-style-row" class="knobs hidden">
+            <label>Estilo
+              <select name="subLook" id="subLook">
+                <option value="frase">Frase con contorno</option>
+                <option value="barra">Barra</option>
+                <option value="palabra">Palabra resaltada</option>
+              </select>
+            </label>
+            <label>Color
+              <select name="subColor" id="subColor">
+                <option value="#ffffff">Blanco</option>
+                <option value="#ffe14a">Amarillo</option>
+                <option value="#7ee7ff">Cian</option>
+                <option value="#ff8ad4">Rosa</option>
+              </select>
+            </label>
+            <label>Tamaño
+              <select name="subSize" id="subSize">
+                <option value="chico">Chico</option>
+                <option value="normal" selected>Normal</option>
+                <option value="grande">Grande</option>
+              </select>
+            </label>
+            <label>Posición
+              <select name="subPosition" id="subPosition">
+                <option value="bottom" selected>Abajo</option>
+                <option value="middle">Centro</option>
+                <option value="top">Arriba</option>
+              </select>
+            </label>
+          </div>
+          <p class="note">Ollama escribe la frase y la descripción con lo que se escucha. Si marcas subtítulos, salen con el estilo que elijas.</p>
+          <div class="duration-row" id="duration-row">
             <div class="chips" id="duration-chips" role="group" aria-label="Duración rápida">
               <button type="button" data-sec="15">15 s</button>
               <button type="button" data-sec="20">20 s</button>
@@ -235,10 +290,12 @@
               <select name="quality" id="quality">
                 <option value="360">360p — más rápido</option>
                 <option value="720" selected>720p — equilibrio</option>
-                <option value="1080">1080p — máximo</option>
+                <option value="1080">1080p</option>
+                <option value="1440">1440p</option>
+                <option value="2160">2160p — 4K</option>
               </select>
             </label>
-            <label>
+            <label id="max-clips-knob">
               Cantidad de clips
               <input name="maxClips" type="number" min="1" max="200" value="12" />
             </label>
@@ -260,10 +317,63 @@
         <div id="clips" class="clips"></div>
       </section>
     </main>
+    </div>
+
+    <div id="view-transcribe" class="hidden">
+      <header class="top tight">
+        <h1>Transcripción idéntica.</h1>
+        <p class="lede">
+          Pega un enlace o sube un vídeo. El texto sale como se dice, sin resumir ni quitar palabras.
+        </p>
+      </header>
+      <main class="grid">
+        <section class="panel">
+          <form id="transcript-form">
+            <p class="step">01 · Origen</p>
+            <label class="url-field">
+              Enlace (YouTube, Twitch, Kick…)
+              <input type="url" id="transcriptUrl" name="sourceUrl" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" />
+            </label>
+            <p class="or-split">o suelta un archivo</p>
+            <label class="file-drop" id="transcript-drop">
+              <input type="file" id="transcriptFile" name="video" accept="video/*,.mp4,.mkv,.mov,.webm,.avi,.m4v" />
+              <span class="file-label" id="transcript-file-label">Arrastra el vídeo aquí</span>
+              <span class="file-hint">mp4 · mkv · mov · webm</span>
+            </label>
+            <button type="submit" id="transcript-submit" class="cta" disabled>Transcribir</button>
+            <button type="button" id="transcript-cancel" class="cta stop hidden">Detener</button>
+          </form>
+        </section>
+        <section class="panel preview">
+          <p class="step">Texto</p>
+          <div id="transcript-status" class="status idle">Pega un enlace o elige un archivo…</div>
+          <div id="transcript-tools" class="hidden">
+            <div class="caption-top">
+              <strong id="transcript-lang"></strong>
+              <div class="clip-btns">
+                <button type="button" id="transcript-copy" class="copy-caption">Copiar</button>
+                <button type="button" id="transcript-txt" class="tiktok-btn">Bajar .txt</button>
+                <button type="button" id="transcript-srt" class="tiktok-btn">Bajar .srt</button>
+              </div>
+            </div>
+            <textarea id="transcript-text" class="caption-text" rows="14" readonly></textarea>
+            <div id="transcript-cues" class="cues"></div>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <footer class="foot">
-      <p>Local · cara auto · highlights · vertical. El título y los subtítulos los pones tú al publicar.</p>
+      <p>Local · cara auto · highlights · vertical. Debajo de cada clip sale un texto para copiar a TikTok.</p>
+      <nav class="legal" aria-label="Legal">
+        <a href="https://dannyelian.github.io/clips-app/" target="_blank" rel="noopener noreferrer">Web</a>
+        <a href="https://dannyelian.github.io/clips-app/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a>
+        <a href="https://dannyelian.github.io/clips-app/terms.html" target="_blank" rel="noopener noreferrer">Terms</a>
+      </nav>
     </footer>
+    <div id="view-tools" class="hidden"></div>
     <script src="/app.js" type="module"></script>
+    <script src="/transcribe.js" type="module"></script>
+    <script src="/tools.js" type="module"></script>
   </body>
 </html>

@@ -36,11 +36,13 @@ export async function detectWebcamRect(
   sourcePath: string,
   durationSec: number,
   workDir: string,
-): Promise<{ rect: CropRect; method: "face" | "fallback"; position?: string }> {
-  const stamps = (durationSec <= 8 * 60 ? [0.5] : [0.15, 0.45, 0.75])
-    .map((p) => durationSec * p)
-    .filter((t) => t > 0.4 && t < Math.max(1, durationSec - 0.4));
-  const unique = stamps.length ? stamps : [Math.min(3, durationSec / 2)];
+): Promise<{
+  rect: CropRect;
+  method: "face" | "fallback";
+  position?: string;
+  focus?: { x: number; y: number };
+}> {
+  const unique = [Math.min(Math.max(durationSec * 0.22, 0.8), Math.max(1, durationSec - 0.6))];
 
   const frames = (
     await Promise.all(
@@ -59,11 +61,17 @@ export async function detectWebcamRect(
       if (code === 0 && stdout.trim()) {
         const parsed = JSON.parse(stdout.trim().split("\n").at(-1) || "{}") as {
           ok?: boolean;
-          webcam?: CropRect;
+          webcam?: CropRect & { focus?: { x: number; y: number } };
           position?: string;
         };
         if (parsed.ok && parsed.webcam) {
-          return { rect: clampRect(parsed.webcam), method: "face", position: parsed.position };
+          const { focus, ...box } = parsed.webcam;
+          return {
+            rect: clampRect(box),
+            method: "face",
+            position: parsed.position,
+            focus,
+          };
         }
       }
     } catch {

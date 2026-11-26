@@ -79,6 +79,92 @@ body {
   margin: 0 auto;
   padding: 2.2rem 1.4rem 0.4rem;
 }
+.top.tight {
+  padding-top: 0.4rem;
+}
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0.4rem;
+}
+.nav-btn {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  cursor: pointer;
+}
+.nav-btn.on {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: transparent;
+}
+.cues {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  max-height: 320px;
+  overflow: auto;
+}
+.cue {
+  display: grid;
+  grid-template-columns: 7.2rem 1fr;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+.cue time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.live-sub {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 84%;
+  margin: 0;
+  text-align: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  text-shadow: 0 1px 0 #000, 0 0 6px #000;
+  pointer-events: none;
+}
+.live-sub.pos-top { bottom: auto; top: 14%; }
+.live-sub.pos-middle { bottom: auto; top: 42%; }
+.live-sub.pos-bottom { bottom: 12%; top: auto; }
+.live-sub.size-chico { font-size: 0.74rem; }
+.live-sub.size-grande { font-size: 1.2rem; }
+.live-sub.look-barra {
+  border-radius: 0.45em;
+  padding: 0.16em 0.7em;
+  text-shadow: none;
+  color: #141414 !important;
+  font-weight: 800;
+}
+.live-sub.look-palabra { color: #fff !important; text-shadow: 0 1px 0 #000, 0 0 6px #000; }
+.live-sub.look-palabra span.on {
+  color: #141414;
+  background: var(--sub-accent, #ffe14a);
+  border-radius: 0.28em;
+  padding: 0 0.22em;
+  text-shadow: none;
+}
+.clip-edit {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .brand-row {
   display: flex;
@@ -94,6 +180,46 @@ body {
   object-fit: contain;
   filter: drop-shadow(0 0 16px rgba(255, 60, 172, 0.45));
 }
+
+.tiktok-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.85rem 0 0;
+}
+#tiktok-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.tiktok-btn {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  cursor: pointer;
+}
+.tiktok-btn.ghost { opacity: 0.75; }
+.clip .actions .clip-btns {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.clip button.tiktok-post {
+  border: 0;
+  color: var(--accent-ink);
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+.clip button.tiktok-post:disabled { opacity: 0.55; cursor: wait; }
 
 .logo {
   font-family: var(--display);
@@ -259,6 +385,13 @@ h1 {
   color: var(--muted);
   font-size: 0.86rem;
   margin: 0 0 0.9rem;
+}
+.check-line {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.35rem;
+  font-weight: 600;
 }
 
 .url-field {
@@ -497,6 +630,70 @@ label {
   background: #000;
   object-fit: contain;
 }
+.caption-box {
+  padding: 0.75rem 0.8rem 0.35rem;
+  border-top: 1px solid var(--line);
+  background: rgba(255,255,255,0.03);
+}
+.overlay-box {
+  background: linear-gradient(180deg, rgba(232,255,74,0.08), rgba(255,255,255,0.02));
+}
+.caption-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.overlay-phrase {
+  font-family: var(--display);
+  font-size: 1.35rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.caption-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+.caption-top strong {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+.copy-caption,
+.copy-overlay {
+  flex-shrink: 0;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.32rem 0.75rem;
+  cursor: pointer;
+}
+.caption-text {
+  width: 100%;
+  resize: vertical;
+  min-height: 7.2rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.35);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  padding: 0.55rem 0.65rem;
+}
+.caption-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
 .clip .actions {
   display: flex;
   justify-content: space-between;
@@ -521,4 +718,22 @@ label {
   padding: 0 1.4rem 2.6rem;
   color: var(--muted);
   font-size: 0.8rem;
+}
+.foot .legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.15rem;
+  margin-top: 0.7rem;
+}
+.foot .legal a {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.foot .legal a:hover {
+  opacity: 1;
+  color: var(--accent);
 }

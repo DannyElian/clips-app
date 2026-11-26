@@ -1,7 +1,12 @@
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
+import { pool } from "../db.js";
 import { probeVideo, runCommand } from "./ffmpeg.js";
 import { downloadHlsWindow } from "./hlsWindow.js";
+
+const VOD_CACHE_DIR = path.join(process.cwd(), "data", "cache", "vod");
+const cacheInflight = new Map<string, Promise<{ path: string; filename: string }>>();
 
 const DIRECT_VIDEO = /\.(mp4|mkv|mov|webm|m4v|avi)(\?|#|$)/i;
 const YTDLP_CANDIDATES: Array<{ cmd: string; prefix: string[] }> = [
@@ -79,13 +84,14 @@ function vodFormat(height: number): { fmt: string; sort: string } {
   }
   if (h <= 720) {
     return {
-      fmt: `22/bv*[height<=720][height>=480][vcodec^=avc]+ba[acodec^=mp4a]/${cap}`,
+      fmt: `bv*[height<=720]+ba/b[height<=720]/${cap}`,
       sort: "res:720,codec:h264:vp9,ext:mp4:m4a",
     };
   }
+  // Prefer a true 1080 source (VP9/AV1 ok) instead of 720 H.264 that we then upscale.
   return {
-    fmt: `bv*[height<=1080][height>=720][vcodec^=avc]+ba[acodec^=mp4a]/${cap}`,
-    sort: "res:1080,codec:h264:vp9,ext:mp4:m4a",
+    fmt: `bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b/${cap}`,
+    sort: "res:1080,fps,codec:vp9:avc,ext:mp4:webm:m4a",
   };
 }
 
@@ -288,6 +294,129 @@ export async function keepLastMinutes(
   return { path: outPath, filename };
 }
 
+export function videoKey(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host === "youtu.be") return `youtube:${u.pathname.split("/").filter(Boolean)[0] || url}`;
+    if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+      const v = u.searchParams.get("v");
+      const parts = u.pathname.split("/").filter(Boolean);
+      const nested = parts[0] === "shorts" || parts[0] === "live" || parts[0] === "embed" ? parts[1] : undefined;
+      return `youtube:${v || nested || url}`;
+    }
+    if (host.endsWith("twitch.tv")) {
+      const parts = u.pathname.split("/").filter(Boolean);
+      const vod = parts[0] === "videos" ? parts[1] : undefined;
+      if (vod) return `twitch:${vod}`;
+    }
+    if (host.endsWith("kick.com")) {
+      const parts = u.pathname.split("/").filter(Boolean);
+      if (parts[0] === "video" && parts[1]) return `kick:${parts[1]}`;
+    }
+    u.hash = "";
+    for (const key of [...u.searchParams.keys()]) {
+      if (/^(si|feature|pp|fbclid|t)$/i.test(key) || key.startsWith("utm_")) u.searchParams.delete(key);
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function cacheIdentity(url: string, height: number): string {
+  return createHash("sha256").update(`${videoKey(url)}|${qualityHeight(height)}`).digest("hex").slice(0, 20);
+}
+
+async function indexCachedVods(key: string): Promise<void> {
+  const names = await fs.readdir(VOD_CACHE_DIR).catch(() => [] as string[]);
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    try {
+      const meta = JSON.parse(await fs.readFile(path.join(VOD_CACHE_DIR, name), "utf8")) as {
+        url?: string;
+        filename?: string;
+      };
+      if (!meta.url || !meta.filename || videoKey(meta.url) !== key) continue;
+      const filePath = path.join(VOD_CACHE_DIR, meta.filename);
+      const probe = await probeVideo(filePath);
+      await rememberSource(key, probe.height, meta.url, { path: filePath, filename: meta.filename });
+    } catch {
+      // skip a broken cache entry
+    }
+  }
+}
+
+async function rememberSource(key: string, height: number, url: string, file: { path: string; filename: string }): Promise<void> {
+  await pool.query(
+    `INSERT INTO source_videos (video_key, height, url, path, filename)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (video_key, height) DO UPDATE SET url = EXCLUDED.url, path = EXCLUDED.path, filename = EXCLUDED.filename, saved_at = now()`,
+    [key, height, url, file.path, file.filename],
+  );
+}
+
+async function findSavedSource(key: string, wantHeight: number): Promise<{ path: string; filename: string } | null> {
+  const { rows } = await pool.query(
+    `SELECT path, filename, height FROM source_videos WHERE video_key = $1 AND height >= $2 ORDER BY height ASC`,
+    [key, minHeightFor(wantHeight)],
+  );
+  for (const row of rows as Array<{ path: string; filename: string; height: number }>) {
+    try {
+      const st = await fs.stat(row.path);
+      if (st.size < 10_000) continue;
+      const probe = await probeVideo(row.path);
+      if (probe.height < minHeightFor(wantHeight)) continue;
+      return { path: row.path, filename: row.filename };
+    } catch {
+      await pool.query("DELETE FROM source_videos WHERE video_key = $1 AND height = $2", [key, row.height]).catch(() => undefined);
+    }
+  }
+  return null;
+}
+
+function minHeightFor(want: number): number {
+  if (want >= 1080) return 900;
+  if (want >= 720) return 600;
+  return 240;
+}
+
+async function readVodCache(
+  key: string,
+  wantHeight: number,
+): Promise<{ path: string; filename: string } | null> {
+  try {
+    const meta = JSON.parse(await fs.readFile(path.join(VOD_CACHE_DIR, `${key}.json`), "utf8")) as {
+      filename?: string;
+    };
+    if (!meta.filename) return null;
+    const filePath = path.join(VOD_CACHE_DIR, meta.filename);
+    const st = await fs.stat(filePath);
+    if (st.size < 10_000) return null;
+    const probe = await probeVideo(filePath);
+    if (probe.height < minHeightFor(wantHeight)) {
+      await fs.unlink(filePath).catch(() => undefined);
+      await fs.unlink(path.join(VOD_CACHE_DIR, `${key}.json`)).catch(() => undefined);
+      return null;
+    }
+    return { path: filePath, filename: meta.filename };
+  } catch {
+    return null;
+  }
+}
+
+async function writeVodCache(
+  key: string,
+  url: string,
+  height: number,
+  file: { path: string; filename: string },
+): Promise<void> {
+  await fs.writeFile(
+    path.join(VOD_CACHE_DIR, `${key}.json`),
+    JSON.stringify({ url, quality: qualityHeight(height), filename: file.filename, savedAt: new Date().toISOString() }),
+  );
+}
+
 export async function downloadSourceVideo(
   url: string,
   destDir: string,
@@ -298,6 +427,73 @@ export async function downloadSourceVideo(
   cookiesBrowser = "auto",
 ): Promise<{ path: string; filename: string }> {
   const safeUrl = parseVideoUrl(url);
+  if (!liveLastMinutes) {
+    const key = cacheIdentity(safeUrl, maxHeight);
+    const pending = cacheInflight.get(key);
+    if (pending) {
+      onProgress?.("Mismo vídeo: esperando la descarga ya en curso…");
+      return pending;
+    }
+    const run = (async () => {
+      const identity = videoKey(safeUrl);
+      let saved = await findSavedSource(identity, maxHeight).catch(() => null);
+      if (!saved) {
+        await indexCachedVods(identity).catch(() => undefined);
+        saved = await findSavedSource(identity, maxHeight).catch(() => null);
+      }
+      if (saved) {
+        onProgress?.("Este enlace ya está guardado. No se vuelve a descargar.");
+        return saved;
+      }
+      const hit = await readVodCache(key, maxHeight);
+      if (hit) {
+        onProgress?.("Este enlace ya está guardado. No se vuelve a descargar.");
+        const probe = await probeVideo(hit.path).catch(() => null);
+        if (probe) {
+          await rememberSource(videoKey(safeUrl), probe.height, safeUrl, hit).catch(() => undefined);
+        }
+        return hit;
+      }
+      const downloaded = await fetchSourceVideo(
+        safeUrl,
+        VOD_CACHE_DIR,
+        key,
+        maxHeight,
+        undefined,
+        onProgress,
+        cookiesBrowser,
+      );
+      try {
+        const probe = await probeVideo(downloaded.path);
+        if (probe.height >= minHeightFor(maxHeight)) {
+          await writeVodCache(key, safeUrl, maxHeight, downloaded);
+          await rememberSource(videoKey(safeUrl), probe.height, safeUrl, downloaded);
+        }
+      } catch {
+        // still return the file
+      }
+      return downloaded;
+    })();
+    cacheInflight.set(key, run);
+    try {
+      return await run;
+    } finally {
+      cacheInflight.delete(key);
+    }
+  }
+  await fs.mkdir(destDir, { recursive: true });
+  return fetchSourceVideo(safeUrl, destDir, fileId, maxHeight, liveLastMinutes, onProgress, cookiesBrowser);
+}
+
+async function fetchSourceVideo(
+  safeUrl: string,
+  destDir: string,
+  fileId: string,
+  maxHeight: number,
+  liveLastMinutes: number | undefined,
+  onProgress: ((msg: string) => void) | undefined,
+  cookiesBrowser: string,
+): Promise<{ path: string; filename: string }> {
   await fs.mkdir(destDir, { recursive: true });
   const wantSec = (liveLastMinutes ?? 0) * 60;
   const onChunk = withProgress(onProgress);
@@ -393,37 +589,59 @@ async function downloadVodYoutube(
       onChunk,
     });
 
-  let { code, stderr } = await run(["--extractor-args", "youtube:player_client=tv,android,ios,web"]);
-  let lastStderr = stderr;
-  if (code === 0) {
+  const attempts: Array<{ extra: string[]; label: string }> = [];
+  if (h >= 720) {
+    const cookieTries = await cookieAttempts("auto", { includeNone: false });
+    for (const cookies of cookieTries) {
+      attempts.push({
+        extra: ["--extractor-args", "youtube:player_client=web,tv,ios", ...cookies.args],
+        label: cookies.label,
+      });
+    }
+  }
+  attempts.push({
+    extra: ["--extractor-args", "youtube:player_client=tv,android,ios,web"],
+    label: "sin sesión",
+  });
+
+  let lastStderr = "";
+  let best: { path: string; filename: string; height: number } | null = null;
+  const need = minHeightFor(h);
+
+  for (const attempt of attempts) {
+    onProgress?.(
+      lastMinutes
+        ? `Descargando los últimos ${lastMinutes} min en ${h}p (${attempt.label})…`
+        : `Descargando ${h}p (${attempt.label})…`,
+    );
+    const { code, stderr } = await run(attempt.extra);
+    lastStderr = stderr;
+    if (code !== 0) continue;
     const match = await pickDownloaded(destDir, fileId);
-    if (match) return match;
+    if (!match) continue;
+    let height = 0;
+    try {
+      height = (await probeVideo(match.path)).height;
+    } catch {
+      continue;
+    }
+    if (!best || height > best.height) best = { ...match, height };
+    if (height >= need) {
+      onProgress?.(`Origen real ${height}p`);
+      return match;
+    }
   }
 
-  // YouTube bot-check: reuse the browser session without showing a cookies UI.
-  if (/not a bot|Sign in to confirm/i.test(lastStderr) || lastMinutes) {
-    onProgress?.(
-      lastMinutes ? `Reintentando últimos ${lastMinutes} min…` : `Descargando vídeo en ${h}p…`,
+  if (/not a bot|Sign in to confirm/i.test(lastStderr) && !best) {
+    throw new Error(
+      "YouTube pide confirmar que no eres un bot. Abre YouTube en Chrome (sesión iniciada), recarga y vuelve a exportar. Si macOS pide la clave del llavero, acéptala.",
     );
-    const cookieTries = await cookieAttempts("auto");
-    for (const cookies of cookieTries) {
-      if (!cookies.args.length) continue;
-      const retry = await run([
-        "--extractor-args",
-        "youtube:player_client=web,android,ios",
-        ...cookies.args,
-      ]);
-      lastStderr = retry.stderr;
-      if (retry.code === 0) {
-        const match = await pickDownloaded(destDir, fileId);
-        if (match) return match;
-      }
-    }
-    if (/not a bot|Sign in to confirm/i.test(lastStderr)) {
-      throw new Error(
-        "YouTube pide confirmar que no eres un bot. Abre YouTube en Chrome (sesión iniciada), recarga y vuelve a exportar. Si macOS pide la clave del llavero, acéptala.",
-      );
-    }
+  }
+  if (best) {
+    onProgress?.(
+      `YouTube solo entregó ${best.height}p (pediste ${h}p). El clip se verá interpolado.`,
+    );
+    return best;
   }
 
   throw downloadError(lastStderr, "formato no disponible");

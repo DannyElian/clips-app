@@ -26,6 +26,47 @@ const liveMode = document.getElementById("liveMode");
 const livePanel = document.getElementById("live-panel");
 const liveInput = document.getElementById("liveLastMinutes");
 const liveChips = document.getElementById("live-chips");
+const tiktokLabel = document.getElementById("tiktok-label");
+const tiktokConnect = document.getElementById("tiktok-connect");
+const tiktokDisconnect = document.getElementById("tiktok-disconnect");
+
+let tiktokConnected = false;
+
+async function refreshTikTok() {
+  try {
+    const res = await fetch("/api/tiktok/status");
+    const data = await res.json();
+    tiktokConnected = Boolean(data.connected);
+    if (!data.configured) {
+      tiktokLabel.textContent = "TikTok: falta .env";
+      tiktokConnect.classList.add("hidden");
+      tiktokDisconnect.classList.add("hidden");
+      return;
+    }
+    if (data.connected) {
+      tiktokLabel.textContent = data.displayName
+        ? `TikTok: @${data.displayName}`
+        : "TikTok conectado";
+      tiktokConnect.classList.add("hidden");
+      tiktokDisconnect.classList.remove("hidden");
+    } else {
+      tiktokLabel.textContent = "TikTok: no conectado";
+      tiktokConnect.classList.remove("hidden");
+      tiktokDisconnect.classList.add("hidden");
+    }
+  } catch {
+    tiktokLabel.textContent = "TikTok: sin servidor";
+  }
+}
+
+tiktokConnect?.addEventListener("click", () => {
+  window.location.href = "/api/tiktok/login";
+});
+
+tiktokDisconnect?.addEventListener("click", async () => {
+  await fetch("/api/tiktok/logout", { method: "POST" });
+  await refreshTikTok();
+});
 
 const DEFAULT_LABEL = "Suelta un vídeo o haz clic para elegir";
 const VIDEO_EXT = /\.(mp4|mkv|mov|webm|avi|m4v)$/i;
@@ -41,6 +82,15 @@ const REASON_ES = {
 let pollTimer = null;
 let submitting = false;
 let currentJobId = null;
+let lastJobId = null;
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function setBusy(on) {
   submitting = on;
@@ -157,25 +207,40 @@ form.addEventListener("change", (e) => {
   if (e.target.name === "liveMode") syncLive();
   if (e.target.name === "sourceMode") syncSourceMode();
   if (e.target.name === "clipPickMode") syncPickMode();
+  if (e.target.id === "burnSubs") syncSubStyle();
 });
 
-function isHighlightsMode() {
-  return form.querySelector('input[name="clipPickMode"]:checked')?.value !== "split";
+function syncSubStyle() {
+  document.getElementById("sub-style-row")?.classList.toggle("hidden", !document.getElementById("burnSubs")?.checked);
+}
+syncSubStyle();
+
+function pickMode() {
+  return form.querySelector('input[name="clipPickMode"]:checked')?.value || "highlights";
 }
 
 function syncPickMode() {
-  const highlights = isHighlightsMode();
+  const mode = pickMode();
+  const highlights = mode === "highlights";
+  const full = mode === "full";
   const note = document.getElementById("pick-note");
   const audioKnob = document.getElementById("audio-knob");
   const pairHl = document.getElementById("pair-highlight-fs");
+  const subsText = document.getElementById("burn-subs-text");
   if (note) {
-    note.textContent = highlights
-      ? "Recorre el vídeo entero y se queda con los momentos de más energía / cambios de escena."
-      : "Corta el vídeo en N trozos de la duración elegida, seguidos, sin buscar picos.";
+    note.textContent = full
+      ? "Descarga el vídeo entero con el recorte, la calidad, la frase y los subtítulos que elijas. Después puedes editarlo con las mismas herramientas de los clips. En un vídeo largo tarda más."
+      : highlights
+        ? "Recorre el vídeo entero y se queda con los momentos de más energía / cambios de escena."
+        : "Corta el vídeo en N trozos de la duración elegida, seguidos, sin buscar picos.";
   }
+  if (subsText) subsText.textContent = full ? "Traer el vídeo con subtítulos" : "Traer los clips con subtítulos";
   audioKnob?.classList.toggle("hidden", !highlights);
   pairHl?.classList.toggle("hidden", !highlights);
-  submitBtn.textContent = highlights ? "Buscar highlights y exportar" : "Partir y exportar";
+  document.getElementById("duration-note")?.classList.toggle("hidden", full);
+  document.getElementById("duration-row")?.classList.toggle("hidden", full);
+  document.getElementById("max-clips-knob")?.classList.toggle("hidden", full);
+  submitBtn.textContent = full ? "Exportar el vídeo completo" : highlights ? "Buscar highlights y exportar" : "Partir y exportar";
 }
 
 function syncLayout() {
@@ -343,6 +408,12 @@ form.addEventListener("submit", async (e) => {
   );
 
   const fd = new FormData(form);
+  fd.set("burnOverlay", document.getElementById("burnOverlay")?.checked ? "1" : "0");
+  fd.set("burnSubs", document.getElementById("burnSubs")?.checked ? "1" : "0");
+  fd.set("subLook", document.getElementById("subLook")?.value || "frase");
+  fd.set("subColor", document.getElementById("subColor")?.value || "#ffffff");
+  fd.set("subSize", document.getElementById("subSize")?.value || "normal");
+  fd.set("subPosition", document.getElementById("subPosition")?.value || "bottom");
   const preset = form.querySelector('input[name="webcamPreset"]:checked')?.value;
   if (preset) fd.set("webcamPreset", preset);
   if (pair) {
@@ -378,6 +449,7 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Fallo al crear el trabajo (${res.status})`);
     currentJobId = data.id;
+    lastJobId = data.id;
     setStatus("working", data.progress || "En cola");
     renderMeta(data);
     pollTimer = setInterval(() => pollJob(data.id), 1500);
@@ -419,7 +491,7 @@ async function pollJob(id) {
     if (job.status === "done") {
       clearInterval(pollTimer);
       setStatus("done", job.progress || "Listo");
-      renderClips(job.clips || []);
+      renderClips(job.clips || [], job.id);
       currentJobId = null;
       setBusy(false);
     } else if (job.status === "error" || job.status === "cancelled") {
@@ -469,12 +541,13 @@ function renderMeta(job) {
       `origen  ${job.sourceWidth}×${job.sourceHeight} · ${Number(job.sourceDurationSec || 0).toFixed(1)}s`,
     );
   }
+  if (job.qualityNote) lines.push(job.qualityNote);
   const preset = PRESET_ES[job.crop?.webcamPreset] || job.crop?.webcamPreset;
   const live = job.options?.liveLastMinutes
     ? ` · directo últimos ${job.options.liveLastMinutes} min`
     : "";
   lines.push(
-    `clips  ${job.options?.clipPickMode === "split" ? "partir" : "mejores momentos"} · ${job.options?.clipDurationSec}s · ${job.options?.quality || "?"}p · ${job.options?.layout === "full" ? "pantalla completa" : job.options?.layout === "pair" ? "dos vídeos" : "dividido"} · máx=${job.options?.maxClips} · cám=${preset} · ${job.options?.output}${live}`,
+    `clips  ${job.options?.clipPickMode === "full" ? "vídeo completo" : job.options?.clipPickMode === "split" ? "partir" : "mejores momentos"}${job.options?.clipPickMode === "full" ? "" : ` · ${job.options?.clipDurationSec}s`} · ${job.options?.quality || "?"}p · ${job.options?.layout === "full" ? "pantalla completa" : job.options?.layout === "pair" ? "dos vídeos" : "dividido"}${job.options?.clipPickMode === "full" ? "" : ` · máx=${job.options?.maxClips}`} · cám=${preset} · ${job.options?.output}${job.options?.burnSubs ? ` · subtítulos ${job.options.subLook || "frase"}` : ""}${live}`,
   );
   if (job.highlights?.length) {
     lines.push(`highlights  ${job.highlights.length}`);
@@ -488,24 +561,110 @@ function renderMeta(job) {
   metaEl.textContent = lines.join("\n");
 }
 
-function renderClips(clips) {
+function renderClips(clips, jobId) {
   clipsEl.innerHTML = "";
   for (const clip of clips) {
     const el = document.createElement("article");
     el.className = "clip";
     const reasons = translateReasons(clip.reasons).join(" · ") || "heurística";
+    const title = clip.title || clip.filename.replace(/\.[^.]+$/, "");
+    const caption = clip.caption || title;
+    const overlay = clip.overlay || "";
+    const mood = clip.mood || "";
+    const overlayHtml = escapeHtml(overlay).replace(/\n/g, "<br />");
     el.innerHTML = `
       <header>
-        <span>${clip.filename}</span>
+        <span>${escapeHtml(clip.filename)}</span>
         <span>${clip.startSec.toFixed(1)}s → ${clip.endSec.toFixed(1)}s · ${clip.durationSec}s</span>
       </header>
-      <video controls playsinline preload="metadata" src="${clip.url}"></video>
+      <video controls playsinline preload="metadata" src="${escapeHtml(clip.url)}"></video>
+      <div class="caption-box overlay-box">
+        <p class="caption-kicker">Marca en el vídeo${mood ? ` · ${escapeHtml(mood)}` : ""}</p>
+        <div class="caption-top">
+          <strong class="overlay-phrase">${overlayHtml || "—"}</strong>
+          <button type="button" class="copy-overlay">Copiar</button>
+        </div>
+        <p class="caption-hint">Ollama la escribe con lo dicho en el clip. Si marcaste la frase, va arriba. Los subtítulos, si los pediste, van abajo.</p>
+      </div>
+      <div class="caption-box">
+        <p class="caption-kicker">Descripción para TikTok</p>
+        <div class="caption-top">
+          <strong>${escapeHtml(title)}</strong>
+          <button type="button" class="copy-caption">Copiar</button>
+        </div>
+        <textarea class="caption-text" rows="6">${escapeHtml(caption)}</textarea>
+        <p class="caption-hint">Texto claro para pegar al publicar. Edítalo si quieres.</p>
+      </div>
       <div class="actions">
-        <span class="reasons">${reasons} · puntuación ${clip.score}</span>
-        <a href="${clip.url}" download="${clip.filename}">Descargar</a>
+        <span class="reasons">${escapeHtml(reasons)} · puntuación ${clip.score}</span>
+        <div class="clip-btns">
+          <button type="button" class="tiktok-post" data-file="${escapeHtml(clip.filename)}">TikTok</button>
+          <button type="button" class="clip-edit">Editar</button>
+          <a href="${escapeHtml(clip.url)}" download="${escapeHtml(clip.filename)}">${clip.filename.startsWith("video-completo") ? "Descargar vídeo" : "Descargar"}</a>
+        </div>
       </div>
     `;
     clipsEl.appendChild(el);
+    const area = el.querySelector(".caption-text");
+    const bindCopy = (btn, getText) => {
+      btn?.addEventListener("click", async () => {
+        const text = getText();
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          area?.select();
+          document.execCommand("copy");
+        }
+        btn.textContent = "Copiado";
+        setTimeout(() => {
+          btn.textContent = "Copiar";
+        }, 1400);
+      });
+    };
+    bindCopy(el.querySelector(".copy-caption"), () => area?.value || caption);
+    bindCopy(el.querySelector(".copy-overlay"), () => overlay);
+    el.querySelector(".tiktok-post")?.addEventListener("click", () => publishClip(clip, el));
+    el.querySelector(".clip-edit")?.addEventListener("click", () => {
+      window.ClipsTools?.open({
+        jobId,
+        filename: clip.filename,
+        url: clip.url,
+        start: clip.startSec,
+        end: clip.endSec,
+        duration: clip.durationSec,
+        title,
+      });
+    });
+  }
+}
+
+async function publishClip(clip, el) {
+  if (!tiktokConnected) {
+    window.location.href = "/api/tiktok/login";
+    return;
+  }
+  const btn = el.querySelector(".tiktok-post");
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = "Subiendo…";
+  const caption = el.querySelector(".caption-text")?.value || clip.caption || clip.title || "";
+  try {
+    const res = await fetch("/api/tiktok/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobId: lastJobId || currentJobId,
+        filename: clip.filename,
+        title: caption.slice(0, 150) || clip.filename.replace(/\.[^.]+$/, ""),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "TikTok rechazó el vídeo");
+    btn.textContent = data.mode === "inbox" ? "En bandeja" : "En TikTok";
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "TikTok";
+    alert(err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -514,3 +673,4 @@ syncLive();
 syncLayout();
 syncSourceMode();
 syncPickMode();
+refreshTikTok();

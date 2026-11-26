@@ -90,18 +90,24 @@ def face_to_webcam(face: dict) -> dict:
     fx, fy, fw, fh = face["x"], face["y"], face["w"], face["h"]
     cx = fx + fw / 2
     cy = fy + fh / 2
-    # Top pane is ~720x512 (wide). Keep the face in the middle, no PIP border.
-    aspect = 720 / 512
-    height = float(np.clip(fh * 2.35, 0.2, 0.52))
+    # Use the full PIP (more pixels). Shift to stay on-frame; do not shrink (that upscales mush).
+    aspect = 1080 / 768
+    height = float(np.clip(fh * 2.85, 0.24, 0.36))
     width = height * aspect
-    if width > 0.58:
-        width = 0.58
+    if width > 0.34:
+        width = 0.34
         height = width / aspect
-    x = cx - width / 2
-    y = cy - height * 0.42
-    x = float(np.clip(x, 0.0, 1.0 - width))
-    y = float(np.clip(y, 0.0, 1.0 - height))
-    return {"x": round(x, 4), "y": round(y, 4), "w": round(width, 4), "h": round(height, 4)}
+    x = float(np.clip(cx - width / 2, 0.0, 1.0 - width))
+    y = float(np.clip(cy - height * 0.42, 0.0, 1.0 - height))
+    focus_x = float(np.clip((cx - x) / max(width, 1e-6), 0.08, 0.92))
+    focus_y = float(np.clip((cy - y) / max(height, 1e-6), 0.08, 0.92))
+    return {
+        "x": round(x, 4),
+        "y": round(y, 4),
+        "w": round(width, 4),
+        "h": round(height, 4),
+        "focus": {"x": round(focus_x, 4), "y": round(focus_y, 4)},
+    }
 
 
 def main() -> None:

@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import { FFMPEG_THREADS, runCommand } from "./ffmpeg.js";
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../scripts/transcribe_es.py");
+const LINES_SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../scripts/transcribe_lines.py");
 
 const FONT_CANDIDATES = [
   "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
@@ -58,6 +59,7 @@ async function extractWav(
   startSec: number,
   durationSec: number,
   wav: string,
+  limitSec = 45,
 ): Promise<boolean> {
   const { code } = await runCommand(
     "ffmpeg",
@@ -68,7 +70,7 @@ async function extractWav(
       "-i",
       sourcePath,
       "-t",
-      Math.min(durationSec, 45).toFixed(2),
+      Math.min(durationSec, limitSec).toFixed(2),
       "-vn",
       "-ac",
       "1",
@@ -81,6 +83,124 @@ async function extractWav(
     { timeoutMs: 2 * 60 * 1000 },
   );
   return code === 0;
+}
+
+export interface TimedLine {
+  text: string;
+  segments: Array<{ start: number; end: number; text: string; words?: Array<{ start: number; end: number; word: string }> }>;
+}
+
+async function readLineItems(
+  wavs: Array<string | null>,
+  outJson: string,
+  timed: boolean,
+  onProgress?: (msg: string) => void,
+): Promise<TimedLine[]> {
+  const texts: TimedLine[] = wavs.map(() => ({ text: "", segments: [] }));
+  const ready = wavs.filter((w): w is string => Boolean(w));
+  if (!ready.length) return texts;
+  const args = [LINES_SCRIPT, outJson, ...(timed ? ["--timed"] : []), ...ready];
+  const { code } = await runCommand(pythonBin(), args, {
+    timeoutMs: Math.min(40, Math.max(8, ready.length)) * 60 * 1000,
+    onChunk: (chunk) => {
+      const line = chunk.trim().split("\n").at(-1) || "";
+      try {
+        const parsed = JSON.parse(line) as { progress?: number };
+        if (typeof parsed.progress === "number") {
+          onProgress?.(`Escuchando los clips… ${Math.round(parsed.progress * 100)}%`);
+        }
+      } catch {
+        // ignore model logs
+      }
+    },
+  });
+  if (code !== 0) return texts;
+  const parsed = JSON.parse(await fs.readFile(outJson, "utf8")) as {
+    items?: Array<{ ok?: boolean; text?: string; segments?: TimedLine["segments"] }>;
+  };
+  let k = 0;
+  for (let i = 0; i < wavs.length; i++) {
+    if (!wavs[i]) continue;
+    const item = parsed.items?.[k++];
+    texts[i] = { text: item?.text || "", segments: item?.segments || [] };
+  }
+  return texts;
+}
+
+/** A few seconds around each peak, so the phrase matches that moment. */
+export async function transcribeMomentLines(
+  clips: Array<{ sourcePath: string; startSec: number; endSec: number; peakSec: number; clipId: string }>,
+  workDir: string,
+  onProgress?: (msg: string) => void,
+): Promise<string[]> {
+  await fs.mkdir(workDir, { recursive: true });
+  const wavs: Array<string | null> = clips.map(() => null);
+  let next = 0;
+  const workers = Math.min(4, clips.length);
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (true) {
+        const i = next++;
+        if (i >= clips.length) return;
+        const clip = clips[i]!;
+        const span = Math.max(0.5, clip.endSec - clip.startSec);
+        const window = Math.min(14, span);
+        const start = Math.max(clip.startSec, Math.min(clip.peakSec - 4, clip.endSec - window));
+        const wav = path.join(workDir, `${clip.clipId}.wav`);
+        const ok = await extractWav(clip.sourcePath, start, window, wav);
+        wavs[i] = ok ? wav : null;
+      }
+    }),
+  );
+  const outJson = path.join(workDir, "lines.json");
+  onProgress?.("Escuchando lo que se dice en cada clip…");
+  let lines: TimedLine[] = wavs.map(() => ({ text: "", segments: [] }));
+  try {
+    lines = await readLineItems(wavs, outJson, false, onProgress);
+  } catch {
+    // leave blanks; copy falls back
+  }
+  for (const wav of wavs) {
+    if (wav) await fs.unlink(wav).catch(() => undefined);
+  }
+  return lines.map((line) => line.text);
+}
+
+/** Full clip window with timestamps, for burned subtitles. */
+export async function transcribeClipSegments(
+  clips: Array<{ sourcePath: string; startSec: number; endSec: number; clipId: string }>,
+  workDir: string,
+  onProgress?: (msg: string) => void,
+): Promise<TimedLine[]> {
+  await fs.mkdir(workDir, { recursive: true });
+  const wavs: Array<string | null> = clips.map(() => null);
+  let next = 0;
+  const workers = Math.min(4, clips.length);
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (true) {
+        const i = next++;
+        if (i >= clips.length) return;
+        const clip = clips[i]!;
+        const span = Math.max(0.5, clip.endSec - clip.startSec);
+        const wav = path.join(workDir, `${clip.clipId}.wav`);
+        const ok = await extractWav(clip.sourcePath, clip.startSec, span, wav, Math.min(span, 180));
+        wavs[i] = ok ? wav : null;
+      }
+    }),
+  );
+  const outJson = path.join(workDir, "cues.json");
+  onProgress?.("Escuchando el clip entero para los subtítulos…");
+  let lines: TimedLine[] = wavs.map(() => ({ text: "", segments: [] }));
+  try {
+    lines = await readLineItems(wavs, outJson, true, onProgress);
+  } catch {
+    // leave blanks
+  }
+  for (const wav of wavs) {
+    if (wav) await fs.unlink(wav).catch(() => undefined);
+  }
+  return lines;
 }
 
 export async function transcribeClipSpanish(

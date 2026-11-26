@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { FFMPEG_THREADS, runCommand } from "./ffmpeg.js";
+import { runCommand } from "./ffmpeg.js";
 import type { ClipOptions, HighlightCandidate } from "../types.js";
 
 interface AudioSample {
@@ -290,14 +290,16 @@ async function extractAudioPeaks(sourcePath: string, workDir: string): Promise<A
     "ffmpeg",
     [
       "-y",
+      "-fflags",
+      "+fastseek",
+      "-vn",
+      "-sn",
       "-i",
       sourcePath,
       "-map",
       "0:a:0",
-      "-vn",
-      "-sn",
       "-threads",
-      String(FFMPEG_THREADS),
+      "2",
       "-ac",
       "1",
       "-ar",
@@ -347,10 +349,10 @@ async function extractSceneChanges(
       "-i",
       sourcePath,
       "-threads",
-      String(FFMPEG_THREADS),
-      "-vf",
-      `fps=1,scale=160:-1,select='gt(scene\\,${threshold})',showinfo`,
+      "2",
       "-an",
+      "-vf",
+      `fps=1,scale=128:-1:flags=fast_bilinear,select='gt(scene\\,${threshold})',showinfo`,
       "-f",
       "null",
       "-",

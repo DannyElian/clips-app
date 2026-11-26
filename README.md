@@ -1,100 +1,38 @@
-# Clips — vertical dual-layout clipper (MVP)
+# CLIPS
 
-Upload a gameplay VOD → auto-detect highlight windows (audio energy + scene changes) → export **9:16** TikTok-style clips with **streamer cam on top (~40%)** and **gameplay on bottom (~60%)**.
+App local para convertir un vídeo, o un enlace de YouTube, Twitch o Kick, en clips verticales listos para TikTok y Reels.
 
-Built for Danny Medina / Clips Project. Uploaded files only (no live ingest yet). No Whisper/LLM in the MVP path.
+Detecta la cámara, separa juego y streamer, elige los mejores momentos o parte el vídeo, y también puede exportar el vídeo completo. Los subtítulos, la frase de arriba y la descripción salen de lo que se escucha.
 
-## Requirements
+Sitio: [dannyelian.github.io/clips-app](https://dannyelian.github.io/clips-app/)
+
+## Qué hace
+
+- Recortes en 9:16, pantalla completa o dos vídeos apilados
+- Calidad hasta 4K, sin inventar resolución que el origen no tiene
+- Subtítulos con estilo (frase, barra o palabra resaltada), color, tamaño y posición
+- Frase y descripción escritas en este equipo con Ollama
+- Herramientas por clip: transcribir, traducir, títulos, descripción, silencios, miniatura y chat
+- El enlace descargado queda guardado para no bajarlo otra vez
+
+## Requisitos
 
 - Node.js 18+
-- `ffmpeg` and `ffprobe` on `PATH`
+- ffmpeg y ffprobe
+- PostgreSQL (base `clips`)
+- Python 3.11, con Pillow, faster-whisper y yt-dlp
+- [Ollama](https://ollama.com) con el modelo `llama3.2`, para títulos y descripciones
 
-## Quick start
+## Arranque
 
 ```bash
-cd clips-app
+cp .env.example .env
 npm install
-npm run sample          # optional synthetic Twitch-like VOD → data/sample-vod.mp4
-npm start               # http://localhost:8787
+./servidor.sh on
 ```
 
-Dev (auto-reload):
+Abre http://localhost:8787
 
-```bash
-npm run dev
-```
+`./servidor.sh off` apaga CLIPS y Ollama. `./servidor.sh state` dice si están encendidos.
 
-Open the UI, drop a VOD (or the sample), pick a webcam preset, hit export. Clips appear in the Status panel when the job finishes.
-
-### API smoke test
-
-```bash
-curl -F video=@data/sample-vod.mp4 \
-  -F webcamPreset=bottom-left \
-  -F output=720x1280 \
-  -F maxClips=5 \
-  http://localhost:8787/api/jobs
-# → { "id": "...", "status": "queued", ... }
-
-curl http://localhost:8787/api/jobs/<id>
-# poll until status=done, then download /api/jobs/<id>/clips/<filename>
-```
-
-## Crop assumptions (documented in UI)
-
-| Piece | Default |
-| --- | --- |
-| Source | Single fullscreen capture (typical Twitch VOD) with a webcam overlay |
-| Webcam presets | `bottom-left` (default), `top-left`, `bottom-right`, or custom normalized rect |
-| Default cam rect | `x=0.01 y=0.68 w=0.24 h=0.30` of source |
-| Gameplay crop | Full frame `0,0,1,1` (override if you want a tighter game window) |
-| Output layout | Always vertical stack: **top 40% cam**, **bottom 60% gameplay** |
-| Output size | `720x1280` (default, faster) or `1080x1920` |
-
-Rects are fractions of source width/height (`0–1`).
-
-## How highlights are chosen
-
-1. Decode mono audio → per-window RMS → keep peaks above a configurable percentile.
-2. Downscaled `fps=2` scene-change pass (`select=gt(scene,N)`).
-3. Merge nearby peaks, pad before/after into **15–45s** windows, return up to **N** clips (default 8).
-4. Silent/static fallback: evenly spaced windows.
-
-Whisper transcription / LLM ranking is intentionally **not** required for MVP.
-
-## Open knobs
-
-| Knob | Form / API field | Default |
-| --- | --- | --- |
-| Webcam preset / custom rect | `webcamPreset`, `webcamX/Y/W/H` | `bottom-left` |
-| Gameplay rect | `gameplayX/Y/W/H` | full frame |
-| Output resolution | `output` | `720x1280` |
-| Target clip length | `clipDurationSec` | `30` |
-| Min / max clip | `minClipSec` / `maxClipSec` | `15` / `45` |
-| Pad before / after peak | `padBeforeSec` / `padAfterSec` | `8` / `22` |
-| Max clips | `maxClips` | `8` |
-| Audio peak percentile | `audioPeakPercentile` | `88` |
-| Scene threshold | `sceneThreshold` | `0.35` |
-
-## Project layout
-
-```
-clips-app/
-  public/           # minimal UI
-  src/
-    server.ts       # Express API + static host
-    types.ts
-    services/
-      ffmpeg.ts     # probe / spawn helpers
-      highlight.ts  # audio + scene heuristics
-      compose.ts    # dual-layout vertical export
-      jobs.ts       # in-memory job runner
-  scripts/make-sample.sh
-  data/             # uploads, jobs, sample (gitignored contents)
-```
-
-## Notes / limits
-
-- Jobs are in-memory; restarting the server clears job status (clip files on disk remain under `data/jobs/`).
-- Long VODs: analysis downscales video for scene detection; export uses `libx264 veryfast`.
-- Live stream ingest is out of scope (queued as a follow-up).
+Las claves de TikTok y la base van solo en `.env`. Ese archivo no se sube.

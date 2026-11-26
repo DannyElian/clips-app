@@ -1,12 +1,14 @@
 {
   "name": "clips-app",
   "version": "0.1.0",
-  "description": "MVP: auto-find gameplay highlights and export vertical dual-layout (cam top / game bottom) TikTok clips",
+  "description": "CLIPS turns a video or a link into vertical TikTok and Reels clips, with subtitles, titles, and descriptions.",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "on": "bash servidor.sh on",
+    "off": "bash servidor.sh off",
     "build": "tsc -p tsconfig.json",
     "sample": "bash scripts/make-sample.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -26,13 +28,15 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "multer": "^2.5.0"
+    "multer": "^2.5.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.13.10",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }
